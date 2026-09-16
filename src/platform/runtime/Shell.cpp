@@ -26,6 +26,9 @@ bool Shell::registerApplication(std::string_view name, ApplicationManager::Facto
 
 void Shell::update() {
     dispatchInput(*this);
+    if (_powerManager.isIdleLockDue() && _applicationManager.allowsIdleLock()) {
+        (void)_lock(Intent{{"shell", "/lock"}}, hal::PowerManager::LockReason::Idle);
+    }
     _applicationManager.update();
     _applicationContainer.update();
     renderFrame(_applicationContainer);
@@ -67,10 +70,10 @@ bool Shell::lock() {
     return _lock(Intent{{"shell", "/lock"}});
 }
 
-bool Shell::_lock(const Intent& intent) {
+bool Shell::_lock(const Intent& intent, hal::PowerManager::LockReason reason) {
     if (isLocked()) return true;
     if (!_applicationManager._interrupt(intent)) return false;
-    _powerManager.setLocked(true);
+    _powerManager.setLocked(true, reason);
     return true;
 }
 

@@ -311,6 +311,7 @@ void testBottomGestureCapture() {
 }
 
 void testSwipeHomeIntegration() {
+    platform::hal::powerManager().notifyActivity();
     auto& shell = facade();
     auto& manager = shell.applicationManager();
     assert(shell.open("app://calendar/"));
@@ -500,7 +501,7 @@ int main() {
     assert(facade().unlock());
     assert(facade().open("app://shell/missing"));
     assert(shellApplication->navigation().currentLocation() == "/");
-    // Inactivity is independent of rendering and does not lock the Shell.
+    // Idle timeout locks even while the display is busy.
     displayBusy = true;
     nowMs += 51999;
     tick();
@@ -510,9 +511,10 @@ int main() {
     assert(frontlightBrightness == 10 && !facade().isLocked());
     nowMs += 8000;
     tick();
-    assert(frontlightBrightness == 0 && !facade().isLocked());
-    assert(facade().goHome());
-    assert(frontlightBrightness == 0);
+    assert(frontlightBrightness == 0 && facade().isLocked());
+    assert(!facade().goHome());
+    assert(facade().unlock());
+    assert(frontlightBrightness == 20);
     inputActive = true;
     tick();
     assert(frontlightBrightness == 20);
@@ -523,7 +525,9 @@ int main() {
     nowMs += 60000;
     tick();
     assert(frontlightBrightness == 0);
-    // The waking tap still launches its target application.
+    assert(facade().isLocked());
+    assert(facade().unlock());
+    // After unlocking, a tap still launches its target application.
     testHomeLaunch();
     testMinuteRefresh();
     testStatusRefresh();

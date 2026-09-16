@@ -33,7 +33,8 @@ class Shell {
     Shell();
     void _handleHomeGesture();
     ~Shell() = default;
-    [[nodiscard]] bool _lock(const Intent& intent);
+    [[nodiscard]] bool _lock(const Intent& intent,
+                             hal::PowerManager::LockReason reason = hal::PowerManager::LockReason::Manual);
     hal::PowerManager& _powerManager;
     ApplicationManager _applicationManager;
     ui::ApplicationContainer _applicationContainer{_applicationManager, [this] { _handleHomeGesture(); }};

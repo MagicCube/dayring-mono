@@ -11,6 +11,8 @@
 #include "platform/runtime/Shell.h"
 #include "platform/ui/Page.h"
 
+extern unsigned long testNowMs;
+
 namespace {
 using platform::runtime::Application;
 using platform::runtime::ApplicationManager;
@@ -241,6 +243,33 @@ void testLockedCacheAndEviction() {
     manager.leave();
     events.clear();
 }
+void testIdleLockRestoration() {
+    auto& shell = Shell::instance();
+    auto& power = platform::hal::powerManager();
+    power.begin();
+    assert(shell.open("app://calendar/detail?id=idle#saved"));
+    auto* original = calendar;
+    testNowMs += 52000;
+    power.update();
+    shell.update();
+    assert(!shell.isLocked() && brightness == 10);
+    testNowMs += 7999;
+    shell.update();
+    assert(!shell.isLocked());
+    ++testNowMs;
+    power.update();
+    shell.update();
+    assert(shell.isLocked() && brightness == 0);
+    shell.update();
+    assert(shell.isLocked() && brightness == 0);
+    assert(shell.unlock());
+    assert(calendar == original && calendar->navigation().currentLocation() == "/detail?id=idle#saved");
+    assert(brightness == 20 && !power.isIdleLockDue());
+    testNowMs += 60000;
+    shell.onInput({platform::runtime::InputEvent::Type::TouchRelease, 100, 100});
+    shell.update();
+    assert(!shell.isLocked() && brightness == 20);
+}
 }  // namespace
 
 namespace platform::hal {
@@ -257,5 +286,6 @@ int main() {
     testShellHistoryRestoration();
     testInactiveShellHistory();
     testLockedCacheAndEviction();
+    testIdleLockRestoration();
     std::cout << "Shell facade, ownership, and restoration tests passed\n";
 }
