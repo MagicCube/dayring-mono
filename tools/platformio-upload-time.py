@@ -23,7 +23,6 @@ if SYNC_REQUESTED:
         "#define PAPERMONO_UPLOAD_RTC_SYNC 1\n"
         f"#define PAPERMONO_UPLOAD_RTC_STAMP {stamp}ULL\n"
     )
-    print(f"Upload RTC sync target: {target.isoformat(timespec='seconds')}")
 else:
     content = (
         "#pragma once\n"
