@@ -2,6 +2,11 @@
 
 These guidelines apply to development and code reviews throughout this repository.
 
+## Commit Messages
+
+- Use semantic commit prefixes such as `feature:`, `fix:`, and `chore:`.
+- Group changes into focused commits by responsibility.
+
 ## Architecture Context
 
 Read [PaperMono hardware constraints](docs/platform/hardware.md) before display, touch, or power work. The panel supports **2-bit grayscale (four levels)**; do not infer panel capability from the current framebuffer format.
