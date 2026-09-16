@@ -35,11 +35,13 @@ void checkIdleStages(platform::hal::PowerManager& power) {
     nowMs += 7999;
     power.update();
     assert(brightness == 10 && writes.size() == count);
+    assert(!power.isIdleLockDue());
     ++nowMs;
     power.update();
     assert(brightness == 0);
     power.update();
     assert(writes.size() == count + 1);
+    assert(power.isIdleLockDue());
 }
 
 void testTimeoutAndActivity(platform::hal::PowerManager& power) {
@@ -134,6 +136,15 @@ void testUnlockDuringFirstLock(platform::hal::PowerManager& power) {
 
 int main() {
     platform::hal::PowerManager power;
+    power.begin();
+    nowMs += 60000;
+    assert(power.isIdleLockDue());
+    power.setLocked(true, platform::hal::PowerManager::LockReason::Idle);
+    assert(brightness == 0 && !power.isIdleLockDue());
+    power.setLocked(false);
+    assert(brightness == 20 && !power.isIdleLockDue());
+    power.setLocked(true);
+    assert(brightness == 0);
     testBootLighting(power);
     nowMs = std::numeric_limits<uint32_t>::max() - 1000;
     testBootLighting(power);

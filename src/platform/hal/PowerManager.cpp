@@ -21,16 +21,22 @@ void PowerManager::notifyActivity() {
     _activateFrontlight();
 }
 
-void PowerManager::setLocked(bool locked) {
+bool PowerManager::isIdleLockDue() const {
+    return !_locked && static_cast<uint32_t>(static_cast<uint32_t>(millis()) - _frontlightLastActivityMs) >=
+                           _frontlightOffTimeoutMs;
+}
+
+void PowerManager::setLocked(bool locked, LockReason reason) {
     if (_locked == locked) return;
     _locked = locked;
     if (!_locked) {
         _activateFrontlight();
-    } else if (!_hasLocked) {
+    } else if (!_hasLocked && reason == LockReason::Manual) {
         // Keep the first lock page visible for ten seconds after boot.
         _hasLocked = true;
         _activateFrontlight();
     } else {
+        _hasLocked = true;
         _setFrontlightBrightness(0);
     }
 }

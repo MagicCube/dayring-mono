@@ -7,10 +7,13 @@
 namespace platform::hal {
 class PowerManager {
    public:
+    enum class LockReason { Manual, Idle };
+
     void begin();
     void update(bool inputActive = false);
     void notifyActivity();
-    void setLocked(bool locked);
+    void setLocked(bool locked, LockReason reason = LockReason::Manual);
+    [[nodiscard]] bool isIdleLockDue() const;
 
    private:
     void _beginFrontlight();
