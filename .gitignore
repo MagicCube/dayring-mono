@@ -1,0 +1,6 @@
+.cache
+.pio/
+.pio-core/
+.vscode/
+.DS_Store
+__pycache__/

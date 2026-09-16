@@ -1,0 +1,16 @@
+BasedOnStyle: Google
+ColumnLimit: 120
+Language: Cpp
+Standard: Auto
+IndentWidth: 4
+ContinuationIndentWidth: 4
+TabWidth: 4
+UseCRLF: false
+UseTab: Never
+AllowShortFunctionsOnASingleLine: None
+BreakBeforeBraces: Attach
+PointerAlignment: Left
+SortIncludes: true
+SortUsingDeclarations: true
+ReflowComments: true
+FixNamespaceComments: true
