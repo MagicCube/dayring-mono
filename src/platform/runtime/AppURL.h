@@ -7,6 +7,7 @@
 #include <vector>
 
 namespace platform::runtime {
+
 // Query keys and values are percent-decoded; '+' remains a literal plus.
 // Duplicate keys use the first value. Unknown keys remain available to callers.
 struct LocationQuery {
@@ -24,4 +25,5 @@ struct AppURL {
     [[nodiscard]] static std::optional<AppURL> parse(std::string_view url);
     [[nodiscard]] static bool isValidApplicationName(std::string_view name);
 };
+
 }  // namespace platform::runtime

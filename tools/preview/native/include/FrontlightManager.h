@@ -7,8 +7,10 @@ class FrontlightManager {
    public:
     void begin() {
     }
+
     void off() {
     }
+
     void setBrightness(uint8_t) {
     }
 };

@@ -5,6 +5,7 @@
 #include <cstdint>
 
 namespace platform::hal {
+
 class PowerManager {
    public:
     enum class LockReason { Manual, Idle };
@@ -32,4 +33,5 @@ class PowerManager {
     bool _locked = false;
     bool _hasLocked = false;
 };
+
 }  // namespace platform::hal

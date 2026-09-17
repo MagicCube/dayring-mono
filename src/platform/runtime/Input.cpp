@@ -5,6 +5,7 @@
 #include "Shell.h"
 
 namespace platform::runtime {
+
 void dispatchInput(Shell& shell) {
     if (hal::powerButtonPressed()) {
         shell.onInput({InputEvent::Type::PowerPress});
@@ -25,4 +26,5 @@ void dispatchInput(Shell& shell) {
     const auto point = freeink::ui::touchToLogical(displayDevice(), x, y);
     shell.onInput({InputEvent::Type::TouchRelease, point.x, point.y});
 }
+
 }  // namespace platform::runtime

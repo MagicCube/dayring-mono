@@ -3,6 +3,7 @@
 #include <cstdint>
 
 namespace platform::runtime {
+
 struct InputEvent {
     enum class Type {
         PowerPress,
@@ -25,4 +26,5 @@ struct InputEvent {
     int16_t startX = 0;
     int16_t startY = 0;
 };
+
 }  // namespace platform::runtime

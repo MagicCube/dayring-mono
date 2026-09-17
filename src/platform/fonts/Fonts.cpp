@@ -12,6 +12,7 @@
 #include "generated/RobotoXL.h"
 
 namespace platform::fonts {
+
 void registerFonts(freeink::ui::DisplayTarget& target) {
     static_assert(freeink::ui::DisplayTarget::FONT_SLOTS == 8);
     target.setFont(fontId(Font::RobotoS), generated::kRobotoS);
@@ -23,4 +24,5 @@ void registerFonts(freeink::ui::DisplayTarget& target) {
     target.setFont(fontId(Font::NDot4XL), generated::kNDot4XL);
     target.setFont(fontId(Font::NDot120), generated::kNDot120);
 }
+
 }  // namespace platform::fonts

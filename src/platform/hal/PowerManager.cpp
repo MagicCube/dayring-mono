@@ -5,6 +5,7 @@
 #include <algorithm>
 
 namespace platform::hal {
+
 void PowerManager::begin() {
     _locked = false;
     _hasLocked = false;
@@ -75,4 +76,5 @@ void PowerManager::_setFrontlightBrightness(uint8_t percent) {
     _frontlightDriver.setBrightness(percent);
     _frontlightBrightness = percent;
 }
+
 }  // namespace platform::hal

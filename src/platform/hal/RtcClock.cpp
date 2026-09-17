@@ -10,6 +10,7 @@
 
 namespace platform::hal {
 namespace {
+
 Rtc rtc;
 
 uint8_t monthFromBuildDate(const char* date) {
@@ -84,6 +85,7 @@ bool applyUploadRtcSync(Rtc& rtc) {
     return set && remembered;
 }
 #endif
+
 }  // namespace
 
 void initializeRtc() {
@@ -100,4 +102,5 @@ Rtc::DateTime clockTime() {
     if (!rtc.now(now)) fatal();
     return now;
 }
+
 }  // namespace platform::hal

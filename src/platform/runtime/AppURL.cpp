@@ -5,12 +5,14 @@
 
 namespace platform::runtime {
 namespace {
+
 int hexDigit(char value) {
     if (value >= '0' && value <= '9') return value - '0';
     if (value >= 'a' && value <= 'f') return value - 'a' + 10;
     if (value >= 'A' && value <= 'F') return value - 'A' + 10;
     return -1;
 }
+
 std::optional<std::string> decodeQuery(std::string_view text) {
     std::string result;
     for (std::size_t i = 0; i < text.size(); ++i) {
@@ -28,6 +30,7 @@ std::optional<std::string> decodeQuery(std::string_view text) {
     }
     return result;
 }
+
 }  // namespace
 
 std::optional<LocationQuery> LocationQuery::parse(std::string_view location) {
@@ -78,4 +81,5 @@ std::optional<AppURL> AppURL::parse(std::string_view url) {
     if (location.starts_with("//")) return std::nullopt;
     return AppURL{std::string(name), std::move(location)};
 }
+
 }  // namespace platform::runtime

@@ -7,6 +7,7 @@
 #include "ApplicationManager.h"
 
 namespace platform::runtime {
+
 class Shell {
    public:
     [[nodiscard]] static Shell& instance();
@@ -40,4 +41,5 @@ class Shell {
     ApplicationManager _applicationManager;
     ui::ApplicationContainer _applicationContainer{_applicationManager, [this] { _handleHomeGesture(); }};
 };
+
 }  // namespace platform::runtime

@@ -3,6 +3,7 @@
 #include "TransitionGuard.h"
 
 namespace platform::runtime {
+
 Application::Application() : _router(*this), _navigation(*this) {
 }
 
@@ -25,4 +26,5 @@ void Application::_deactivate() {
 
     onLeave();
 }
+
 }  // namespace platform::runtime

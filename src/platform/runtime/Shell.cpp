@@ -12,6 +12,7 @@
 #endif
 
 namespace platform::runtime {
+
 Shell::Shell() : _powerManager(hal::powerManager()) {
 }
 
@@ -112,4 +113,5 @@ bool Shell::onInput(const InputEvent& event) {
     _powerManager.notifyActivity();
     return _applicationContainer.onInput(event);
 }
+
 }  // namespace platform::runtime

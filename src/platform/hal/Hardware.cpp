@@ -14,12 +14,14 @@
 
 namespace platform::hal {
 namespace {
+
 EInkDisplay panel(BoardConfig::ACTIVE.display.sclk, BoardConfig::ACTIVE.display.mosi, BoardConfig::ACTIVE.display.cs,
                   BoardConfig::ACTIVE.display.dc, BoardConfig::ACTIVE.display.rst, BoardConfig::ACTIVE.display.busy);
 InputManager buttons;
 PowerManager powerManagerDevice;
 LedManager leds;
 bool refreshPending = false;
+
 }  // namespace
 
 [[noreturn]] void fatal() {
@@ -119,4 +121,5 @@ bool hasInputActivity() {
     }
     return false;
 }
+
 }  // namespace platform::hal

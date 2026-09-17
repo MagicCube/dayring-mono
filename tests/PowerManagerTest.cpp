@@ -7,10 +7,12 @@
 #include "platform/hal/PowerManager.h"
 
 namespace {
+
 uint32_t nowMs = 0;
 bool advanceClock = false;
 uint8_t brightness = 0;
 std::vector<uint8_t> writes;
+
 }  // namespace
 
 unsigned long millis() {
@@ -18,10 +20,12 @@ unsigned long millis() {
 }
 
 namespace platform::hal {
+
 void testFrontlightBrightness(uint8_t percent) {
     brightness = percent;
     writes.push_back(percent);
 }
+
 }  // namespace platform::hal
 
 void checkIdleStages(platform::hal::PowerManager& power) {

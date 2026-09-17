@@ -8,6 +8,7 @@
 #include "typography/TypographyApplication.h"
 
 namespace apps {
+
 using platform::runtime::Application;
 using platform::runtime::Residency;
 
@@ -32,4 +33,5 @@ bool registerApplications(platform::runtime::Shell& shell) {
                },
                Residency::Transient);
 }
+
 }  // namespace apps

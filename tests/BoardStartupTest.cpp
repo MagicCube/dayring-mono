@@ -5,15 +5,19 @@
 #include <string_view>
 
 namespace {
+
 unsigned long nowUs = 0;
+
 }
 
 unsigned long millis() {
     return nowUs / 1000;
 }
+
 void delay(unsigned long ms) {
     nowUs += ms * 1000;
 }
+
 void delayMicroseconds(unsigned int us) {
     nowUs += us;
 }

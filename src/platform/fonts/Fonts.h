@@ -3,10 +3,13 @@
 #include <FreeInkUICore.h>
 
 namespace freeink::ui {
+
 class DisplayTarget;
+
 }
 
 namespace platform::fonts {
+
 enum class Font : freeink::ui::FontId {
     RobotoS = 0,
     RobotoM = 1,
@@ -23,4 +26,5 @@ enum class Font : freeink::ui::FontId {
 }
 
 void registerFonts(freeink::ui::DisplayTarget& target);
+
 }  // namespace platform::fonts
