@@ -10,18 +10,18 @@
 | Lock presentation mechanics | `ApplicationManager.cpp` | `_interrupt`, `_restore` |
 | Callback reentrancy | `TransitionGuard.h` | `TransitionGuard` |
 
-Ownership: manager → applications → page controllers/router/navigation. Router and history borrow page-controller pointers; repeated entries do not clone page state. Only the foreground app receives dispatch. Resident apps persist; transient apps use a recency cache (default two).
+## Contracts
 
-Ordinary `onEnter(Open)` handles route selection/fallback; manager open success does not guarantee the requested page exists. PageController callbacks cannot recursively navigate/switch apps. `Present`/`Restore` preserve normal history. Applications explicitly delegate page dispatch and invalidate visual changes.
+- Manager owns applications; applications own controllers/router/navigation. Router/history borrow controller pointers; repeated entries do not clone state. Only the foreground app receives dispatch. Residents persist; transients use a recency cache (default two).
+- `onEnter(Open)` selects routes/fallback: ordinary open success does not guarantee the requested page exists. `Present`/`Restore` preserve history. PageController callbacks cannot recursively navigate or switch apps (`TransitionGuard`).
+- Applications explicitly delegate page dispatch and invalidate visual changes. Cleanup and suspension rules: [UI ownership](ui.md#ownership-and-lifecycle).
+- Register new apps in `src/apps/RegisterApplications.cpp`; example: `src/apps/common/PlaceholderApplication.cpp`. Production transitions use [Shell](shell.md).
 
-New app entry: `src/apps/RegisterApplications.cpp`; example: `src/apps/common/PlaceholderApplication.cpp`. `app://typography/` opens `src/apps/typography/TypographyApplication.*`, which owns `TypographyPageController`; HomePageController launches it alongside Calendar and Test. Production inter-app transitions use [Shell](shell.md).
+## Route validation and tooling
 
-Checks: `make test-application-manager`, `make test-navigation`.
+- `OpenMode::Exact` rejects unregistered paths. Both modes reject invalid parameters before foreground navigation using side-effect-free `PageController::acceptsLocation`.
+- `checkRoute` prepares and validates; `currentURL` reports the entered location; `Shell::resolveURL` handles Home aliases.
+- `ApplicationRouter::descriptions` exposes help/fullscreen metadata. `describeRoutes` may initialize every registered app without entering pages; intended for short-lived tooling.
+- `LocationQuery` decodes query values while preserving raw locations for callbacks. [Preview CLI](../tools/preview/README.md) shares firmware registration and validation.
 
-## Host Preview and Exact Routes
-
-`ApplicationManager::open` and `Shell::open` accept `OpenMode::Exact` to reject unregistered page paths rather than accepting application fallback. `checkRoute` prepares the application and reports URL, registration, and parameter errors; `currentURL` reports the entered location. Invalid parameters are rejected before foreground navigation in both open modes. `Shell::resolveURL` centralizes Home alias resolution.
-
-`ApplicationRouter::descriptions` exposes optional registration help and fullscreen state. `ApplicationManager::describeRoutes` discovers all applications before any is active, without entering pages; discovery can initialize all registered applications and is intended for short-lived tooling. Page validation uses the side-effect-free `PageController::acceptsLocation` hook before navigation leaves the current page. `LocationQuery` provides percent-decoded query lookup while preserving raw locations for lifecycle callbacks.
-
-The host CLI at `tools/preview/preview` compiles the same application registrations and runtime. See [Preview CLI](../tools/preview/README.md). Checks: `make test-preview`.
+Checks: `make test-application-manager test-navigation test-preview`.

@@ -36,18 +36,15 @@
 
 Use `platform::fonts::Font` in application code; convert with `fontId` at SDK boundaries, e.g. `.font = fontId(Font::RobotoM)`. Do not introduce raw slot numbers or replace slots per page. SDK default `TextStyle` and unconfigured theme tokens still select slot 0; body/title consumers must explicitly choose their intended slot. Registration alone does not set a theme.
 
-Slots 0–6 include all 95 printable ASCII characters U+0020–U+007E, including punctuation. Slot 7 includes exactly `0123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZ` (37 rasterized glyphs), with digits and uppercase letters centered within uniform 72px advance cells. The colon uses its natural 24px advance, centered in that narrower cell. Every `HH:MM` measures 312px; changing the time never changes its width. The SDK requires a contiguous metric table: U+003B–U+0040 are reserved blank cells, not supported characters. Do not use that slot for general text.
+## Coverage
 
-No CJK or extended Unicode font fallback is installed. SDK ellipsis normalization maps U+2026 to three ASCII dots in slots 0–6; other non-ASCII punctuation is not covered. Extend coverage deliberately rather than silently baking missing-glyph boxes. Source font coverage and SDK integer field bounds are checked by the generator.
+- Slots 0–6: printable ASCII U+0020–U+007E. No CJK/extended Unicode fallback. SDK normalizes ellipsis to three dots; extend other missing coverage deliberately.
+- Slot 7: `0123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZ` only. Digits/letters have centered 72 px advances; colon 24 px; every `HH:MM` is 312 px wide. U+003B–U+0040 are blank metric-table padding, not supported glyphs.
 
-## Regeneration and validation
+## Generation and checks
 
-Run `python tools/generate-fonts/generate-fonts.py` from a Python environment with Pillow 12.3.0 and fonttools 4.65.0; `clang-format` must be on PATH. Inputs live in `fonts/`; source provenance is in `fonts/README.md`. Generated headers are committed assets; firmware builds do not require Python font libraries. Large generated data tables are exempt from handwritten file-size guidelines.
+Run `python tools/generate-fonts/generate-fonts.py` with Pillow 12.3.0, fonttools 4.65.0 and `clang-format` on PATH. Inputs/provenance: `fonts/README.md`. Commit generated headers; never hand-edit. Only `Fonts.cpp` includes bitmap data; firmware builds need no Python font libraries.
 
-Assets use 1bpp rasterization for the monochrome framebuffer. Each bitmap is included only by `Fonts.cpp`. Preserve baseline metrics; nominal pixel size is not line height. The generator renders using translated glyph bounds to avoid clipping negative bearings.
+The generator checks source coverage/integer bounds and handles negative bearings. Preserve baseline metrics and glyph coverage. Assets are 1bpp; this does not limit panel grayscale capability.
 
-Run `make test-fonts test-shell test-shell-facade`. Build firmware with `.pio-core/penv/bin/python -m platformio run -e papermono`; `make build` also formats unrelated source files. Font size/density and Ndot dot separation still require physical-panel inspection.
-
-Typography preview: launch `app://typography/` from Home. Two article spreads cover all eight slots, using `layoutLinear` and `measureWrappedText`, 24px side padding and 16px block gaps. Left swipe/right-third tap advances; right swipe/left-third tap returns. Center taps and vertical swipes do not page; endpoints do not wrap. Rendered bounds gate input, and page changes invalidate through `TypographyApplication::onInput`. Global bottom-edge home gestures remain container-owned.
-
-For host pixel verification, run `./tools/preview/preview capture 'app://typography/?article=reading'` and repeat with `article=display`. The CLI registers the same committed font bitmaps and renders the same page methods as firmware; no desktop font substitution is used.
+Checks: `make test-fonts test-shell test-shell-facade`. Firmware: `.pio-core/penv/bin/python -m platformio run -e papermono` (`make build` also formats unrelated files). Capture both `app://typography/?article=reading` and `article=display`; font density and Ndot dot separation also need physical-panel inspection.
