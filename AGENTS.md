@@ -98,3 +98,17 @@ public:
     bool _isLocked = false;
 };
 ```
+
+## UI Verification
+
+For UI changes, capture the affected real page and visually inspect the PNG before finishing:
+
+```sh
+make preview "app://typography/?article=display"
+```
+
+`make preview` without a URL captures `app://shell/`. For options, use `./tools/preview/preview capture --help`; discover shared firmware routes with `routes`, and page parameters with `help <application>`.
+
+Show the resulting screenshot to the user in the response using a Markdown image with its absolute filesystem path, for example `![Typography preview](/absolute/project/path/.preview/typography--article-display.png)`. A tool-only image inspection or a plain file link does not satisfy this requirement. Re-capture after the final UI change so the displayed image matches the current code.
+
+The launcher uses the project's PlatformIO Python. `.preview/` contains PNGs only; filenames identify the application, omit the root page, and include a readable query without random/hash suffixes. Repeated captures overwrite the same screenshot, including device-state changes. Build artifacts, dependency/object caches, Python bytecode, and temporary work live in `.cache/preview/`. Both directories are Git-ignored. See [Preview CLI](tools/preview/README.md) for options and `make test-preview`. Keep route definitions and parameter behavior shared with firmware.

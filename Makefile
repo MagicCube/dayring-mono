@@ -3,7 +3,7 @@ PYTHON ?= $(CURDIR)/.pio-core/penv/bin/python
 PIO = "$(PYTHON)" -m platformio
 CLANG_FORMAT ?= clang-format
 HOST_CXX ?= c++
-CXX_SOURCES := $(shell find src include tests -type f \( -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \))
+CXX_SOURCES := $(shell find src include tests tools/preview -type f \( -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \))
 
 APPLICATION_SOURCES := src/platform/ui/Page.cpp src/platform/runtime/Application.cpp src/platform/runtime/ApplicationRouter.cpp \
     src/platform/runtime/ApplicationNavigation.cpp src/platform/runtime/ApplicationManager.cpp src/platform/runtime/AppURL.cpp
@@ -93,3 +93,39 @@ test-fonts:
 	trap 'rm -f "$$font_test"' EXIT; \
 	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror $(HOST_UI_FLAGS) \
 		tests/FontsTest.cpp src/platform/fonts/Fonts.cpp -o "$$font_test" && "$$font_test"
+
+.PHONY: test-preview test-preview-runtime
+test: test-preview
+
+test-preview: test-preview-runtime
+	PYTHONPYCACHEPREFIX="$(CURDIR)/.cache/preview/python" PYTHON="$(PYTHON)" "$(PYTHON)" tools/preview/tests/test_cli.py
+
+test-preview-runtime:
+	@mkdir -p "$(CURDIR)/.cache/preview/tmp"
+	@preview_test=$$(mktemp "$(CURDIR)/.cache/preview/tmp/runtime-test.XXXXXX"); \
+	trap 'rm -f "$$preview_test"' EXIT; \
+	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror -Isrc -Itools/preview/native/include \
+		-isystem freeink-sdk/libs/ui/FreeInkUI/include -isystem freeink-sdk/libs/hardware/Rtc/include \
+		tools/preview/tests/RuntimeTest.cpp tools/preview/native/HostHardware.cpp src/platform/hal/PowerManager.cpp \
+		$(APPLICATION_SOURCES) freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp -o "$$preview_test" && "$$preview_test"
+
+# Accept URL goals or command-line assignments without interpolating them into shell code.
+# Export the literal URL so query metacharacters remain data.
+ifneq ($(filter preview,$(MAKECMDGOALS)),)
+PREVIEW_URL_GOALS := $(filter app://%,$(MAKECMDGOALS))
+PREVIEW_URL_VARIABLES := $(foreach name,$(filter app://%,$(.VARIABLES)),$(if $(filter command line,$(origin $(name))),$(name)))
+ifneq ($(words $(PREVIEW_URL_GOALS) $(PREVIEW_URL_VARIABLES)),0)
+ifneq ($(words $(PREVIEW_URL_GOALS) $(PREVIEW_URL_VARIABLES)),1)
+$(error Pass exactly one app:// URL to make preview)
+endif
+endif
+export DAYRING_PREVIEW_URL := $(if $(PREVIEW_URL_VARIABLES),$(PREVIEW_URL_VARIABLES)=$(value $(PREVIEW_URL_VARIABLES)),$(if $(PREVIEW_URL_GOALS),$(PREVIEW_URL_GOALS),app://shell/))
+ifneq ($(PREVIEW_URL_GOALS),)
+$(subst :,\:,$(PREVIEW_URL_GOALS)):
+	@:
+endif
+endif
+
+.PHONY: preview
+preview:
+	@PYTHON="$(PYTHON)" ./tools/preview/preview capture "$$DAYRING_PREVIEW_URL"

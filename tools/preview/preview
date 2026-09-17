@@ -1,0 +1,12 @@
+#!/bin/sh
+# Resolve the repository independently of the caller's working directory.
+set -eu
+ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
+PREVIEW_PYTHON=${PYTHON:-"$ROOT/.pio-core/penv/bin/python"}
+if ! command -v "$PREVIEW_PYTHON" >/dev/null 2>&1; then
+    echo "Preview Python is unavailable: $PREVIEW_PYTHON" >&2
+    echo "Initialize this project's PlatformIO environment (.pio-core/penv), or set PYTHON to an existing Python 3.10+ executable." >&2
+    exit 4
+fi
+export PYTHONPYCACHEPREFIX="$ROOT/.cache/preview/python"
+exec "$PREVIEW_PYTHON" "$ROOT/tools/preview/cli.py" "$@"

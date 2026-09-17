@@ -40,3 +40,5 @@ Assets use 1bpp rasterization for the monochrome framebuffer. Each bitmap is inc
 Run `make test-fonts test-shell test-shell-facade`. Build firmware with `.pio-core/penv/bin/python -m platformio run -e papermono`; `make build` also formats unrelated source files. Font size/density and Ndot dot separation still require physical-panel inspection.
 
 Typography preview: launch `app://typography/` from Home. Two article spreads cover all eight slots, using `layoutLinear` and `measureWrappedText`, 24px side padding and 16px block gaps. Left swipe/right-third tap advances; right swipe/left-third tap returns. Center taps and vertical swipes do not page; endpoints do not wrap. Rendered bounds gate input, and page changes invalidate through `TypographyApplication::onInput`. Global bottom-edge home gestures remain container-owned.
+
+For host pixel verification, run `./tools/preview/preview capture 'app://typography/?article=reading'` and repeat with `article=display`. The CLI registers the same committed font bitmaps and renders the same page methods as firmware; no desktop font substitution is used.

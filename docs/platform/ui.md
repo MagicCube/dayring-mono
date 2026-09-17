@@ -21,3 +21,9 @@ Touch press/release checks last-rendered page identity, status visibility and co
 Checks: `make test-shell`; `make test-navigation` for page lifecycle; `make test-shell-facade` for lock integration.
 
 Container captures completed bottom-edge upward swipes before application input using FreeInk `edgeSwipe`. The invisible bottom band is 72 logical pixels and does not reduce content bounds; it also applies to fullscreen pages. Swipe endpoints are absolute logical coordinates. The same rendered-page/status guard rejects stale-layout swipes. The injected home handler consumes matching gestures even when Shell ignores or cannot execute navigation; other swipes reach the app.
+
+## PNG Verification
+
+`make preview "app://application/path"` runs production composition and rendering on macOS. Host hardware adapters in `tools/preview/native/` supply fixed clock/battery state and the same 800 × 480 native framebuffer. The runner exports the rotated 480 × 800 portrait frame; Python writes PNG under `.preview/`, while build and dependency/object caches live in `.cache/preview/`. Screenshot names omit the root page and hashes; repeated captures overwrite the same PNG. No SVG or browser rendering is involved. See [Preview CLI](../../tools/preview/README.md) for progressive help and tests.
+
+Typography supports `app://typography/?article=reading` and `app://typography/?article=display` through shared page validation and entry logic. Swipe/tap paging remains available on-device.
