@@ -11,6 +11,8 @@ These guidelines apply to development and code reviews throughout this repositor
 
 Read [Font principles and usage](docs/platform/fonts.md) before choosing fonts or changing typography, font assets, or slots.
 
+Read [UI architecture and design principles](docs/ui.md) before UI work. Views own all rendering and must not depend on operating-system or device code; controllers own state, behavior, and service access.
+
 Read [PaperMono hardware constraints](docs/platform/hardware.md) before display, touch, or power work. The panel supports **2-bit grayscale (four levels)**; do not infer panel capability from the current framebuffer format.
 
 Use these code maps to locate implementation; load only the relevant map, then read the listed symbols. Paths are repository-relative. Update maps when responsibilities or entry points move; `plans/` may be outdated.
@@ -22,6 +24,15 @@ Use these code maps to locate implementation; load only the relevant map, then r
 | Pages, composition, invalidation, rendering and hit testing | [UI](docs/platform/ui.md) |
 | Font slots, character coverage, generation and registration | [Fonts](docs/platform/fonts.md) |
 | Hardware ownership, initialization and refresh completion | [HAL](docs/platform/hal.md) |
+
+## UI Design Principles
+
+- The visual direction is Nothing + Teenage Engineering: restrained, functional, instrument-like interfaces with deliberate typography, precise alignment, strong hierarchy, and generous negative space.
+- Translate this direction through the existing font system: Roboto for readable labels and text, Ndot for clocks, large numbers, and short display accents. Follow `docs/platform/fonts.md`; do not introduce decorative fonts merely to imitate a brand.
+- Prefer uppercase for short utility labels and compact date metadata when it improves the composition. Do not apply uppercase indiscriminately to body text or long titles.
+- Make spacing and alignment systematic, and give each screen one clear visual focus. Preserve stable positions when optional status information appears or disappears.
+- Keep decoration purposeful. Avoid ornamental technical labels, fake model numbers, gratuitous borders, and icons or indicators that do not convey useful state.
+- Treat these brands as a design direction, not a requirement to reproduce their products. Evaluate the actual page on the monochrome display and prioritize legibility and function.
 
 ## Documentation and Comment Language
 
@@ -62,8 +73,8 @@ These are maintainability guidelines, not rigid limits. Count blank lines and co
 ## Application and Page Naming
 
 - All application class names must end with `Application`.
-- All page class names must end with `Page`, except for the Shell application's `LockScreen` and `HomeScreen`.
-- `LockScreen` and `HomeScreen` are the only exceptions; do not use the `Screen` suffix for other pages.
+- All page View class names must end with `Page`, and page controller names must end with `PageController`.
+- Reusable Views may use descriptive names such as `StatusBar`; their controllers end with `Controller`.
 - Keep corresponding header and implementation filenames consistent with their class names.
 
 ## Private Member Naming

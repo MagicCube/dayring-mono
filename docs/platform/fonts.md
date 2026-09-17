@@ -17,7 +17,7 @@
 | Bitmap data and metrics | `src/platform/fonts/generated/*.h` | Generated constants; do not hand-edit |
 | Reproducible generation and metric guards | `tools/generate-fonts.py` | `SPECS`, `generate`, `rasterize` |
 | On-device font specimen | `src/apps/typography/TypographyPage.cpp` | `readingArticle`, `displayArticle`, `_renderArticle` |
-| Clock consumer | `src/apps/shell/pages/LockScreen.cpp` | `LockScreen::render` |
+| Clock consumer | `src/apps/shell/pages/LockPage.cpp` | `LockPage::render` |
 | Small text consumer | `src/apps/shell/components/StatusBar.cpp` | `StatusBar::render` |
 | Registration, glyph rendering and clock stability checks | `tests/FontsTest.cpp` | `main` |
 
