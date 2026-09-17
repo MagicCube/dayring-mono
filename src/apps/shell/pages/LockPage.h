@@ -12,6 +12,7 @@ struct LockPageProps {
     bool charging = false;
     bool batteryKnown = false;
     uint8_t percent = 0;
+    bool showUnlockHint = false;
 };
 
 class LockPage final : public platform::ui::Page<LockPageProps> {

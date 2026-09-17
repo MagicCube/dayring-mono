@@ -53,14 +53,15 @@ void ApplicationContainer::render(Canvas& canvas, const Rect& bounds) {
     _dirty = false;
 }
 
-bool ApplicationContainer::onInput(const runtime::InputEvent& event) {
+bool ApplicationContainer::onInput(const runtime::InputEvent& event, int16_t minimumHomeSwipeDistance) {
     using Type = runtime::InputEvent::Type;
     if (event.type == Type::Swipe) {
         if (!_renderedPage || _applications.currentPageController() != _renderedPage ||
             isStatusBarVisible() != _renderedStatusBarVisible)
             return false;
         constexpr int kBottomBandHeight = 72;
-        if (_homeGesture && _bounds.height > 0 && _bounds.contains(event.startX, event.startY) &&
+        if (_homeGesture && _bounds.height > 0 && event.startY - event.y >= minimumHomeSwipeDistance &&
+            _bounds.contains(event.startX, event.startY) &&
             freeink::ui::edgeSwipe(
                 freeink::ui::ScreenEdge::Bottom, event.startX - _bounds.x, event.startY - _bounds.y,
                 event.x - _bounds.x, event.y - _bounds.y, _bounds.width, _bounds.height,

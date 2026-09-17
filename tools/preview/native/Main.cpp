@@ -85,7 +85,7 @@ bool number(std::string_view value, int maximum, uint8_t& out) {
     return true;
 }
 
-int capture(Shell& shell, char** argv) {
+int capture(Shell& shell, char** argv, bool powerPress) {
     uint8_t hour, minute, battery, charging;
     if (!number(argv[3], 23, hour) || !number(argv[4], 59, minute) || !number(argv[5], 100, battery) ||
         !number(argv[6], 1, charging))
@@ -101,6 +101,10 @@ int capture(Shell& shell, char** argv) {
     if (shell.applicationManager().currentURL() != resolved)
         return fail(5, "route_mismatch", "The application redirected away from the requested page.");
     shell.update();
+    if (powerPress) {
+        shell.onInput({platform::runtime::InputEvent::Type::PowerPress});
+        shell.update();
+    }
     if (!preview::hasFrame()) return fail(5, "missing_frame", "The render cycle submitted no frame.");
     return preview::writeFrame((",\"resolved_url\":" + jsonString(resolved)).c_str());
 }
@@ -111,6 +115,7 @@ int main(int argc, char** argv) {
     auto& shell = Shell::instance();
     if (!apps::registerApplications(shell)) return fail(5, "registration_failed", "Application registration failed.");
     if (argc == 2 && std::string_view(argv[1]) == "routes") return listRoutes(shell);
-    if (argc == 7 && std::string_view(argv[1]) == "capture") return capture(shell, argv);
+    if ((argc == 7 || argc == 8) && std::string_view(argv[1]) == "capture")
+        return capture(shell, argv, argc == 8 && std::string_view(argv[7]) == "1");
     return fail(2, "invalid_arguments", "Use the tools/preview/preview launcher. The native protocol is internal.");
 }

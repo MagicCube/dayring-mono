@@ -22,6 +22,12 @@ void PowerManager::notifyActivity() {
     _activateFrontlight();
 }
 
+void PowerManager::notifyPowerConnectionChanged() {
+    if (!_locked) return;
+    _lockedLightDurationMs = 5000;
+    _activateFrontlight();
+}
+
 bool PowerManager::isIdleLockDue() const {
     return !_locked && static_cast<uint32_t>(static_cast<uint32_t>(millis()) - _frontlightLastActivityMs) >=
                            _frontlightOffTimeoutMs;
@@ -30,6 +36,7 @@ bool PowerManager::isIdleLockDue() const {
 void PowerManager::setLocked(bool locked, LockReason reason) {
     if (_locked == locked) return;
     _locked = locked;
+    _lockedLightDurationMs = _frontlightLockTimeoutMs;
     if (!_locked) {
         _activateFrontlight();
     } else if (!_hasLocked && reason == LockReason::Manual) {
@@ -55,7 +62,7 @@ void PowerManager::_updateFrontlight() {
     const auto now = static_cast<uint32_t>(millis());
     const auto idleMs = static_cast<uint32_t>(now - _frontlightLastActivityMs);
     if (_locked) {
-        if (idleMs >= _frontlightLockTimeoutMs) _setFrontlightBrightness(0);
+        if (idleMs >= _lockedLightDurationMs) _setFrontlightBrightness(0);
         return;
     }
     if (idleMs >= _frontlightOffTimeoutMs) {

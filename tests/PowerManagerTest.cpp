@@ -189,6 +189,15 @@ int main() {
     power.update(true);
     assert(brightness == 20);
     checkIdleStages(power);
+    power.setLocked(true);
+    power.notifyPowerConnectionChanged();
+    assert(brightness == 20);
+    nowMs += 4999;
+    power.update();
+    assert(brightness == 20);
+    nowMs += 1;
+    power.update();
+    assert(brightness == 0);
     // A clock tick between boot/activity and idle sampling must not underflow.
     advanceClock = true;
     power.begin();

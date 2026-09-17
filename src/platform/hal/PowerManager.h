@@ -13,6 +13,7 @@ class PowerManager {
     void begin();
     void update(bool inputActive = false);
     void notifyActivity();
+    void notifyPowerConnectionChanged();
     void setLocked(bool locked, LockReason reason = LockReason::Manual);
     [[nodiscard]] bool isIdleLockDue() const;
 
@@ -29,6 +30,7 @@ class PowerManager {
     static constexpr uint32_t _frontlightLockTimeoutMs = 10000;
     FrontlightManager _frontlightDriver;
     uint32_t _frontlightLastActivityMs = 0;
+    uint32_t _lockedLightDurationMs = _frontlightLockTimeoutMs;
     uint8_t _frontlightBrightness = 0;
     bool _locked = false;
     bool _hasLocked = false;

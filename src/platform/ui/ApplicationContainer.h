@@ -28,7 +28,7 @@ class ApplicationContainer final {
     void update();
     [[nodiscard]] bool needsRender() const;
     void render(Canvas& canvas, const Rect& bounds);
-    bool onInput(const runtime::InputEvent& event);
+    bool onInput(const runtime::InputEvent& event, int16_t minimumHomeSwipeDistance = 0);
 
    private:
     void _synchronizeVisibility();

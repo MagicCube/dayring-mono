@@ -94,3 +94,5 @@ Examples are defined in `native/ViewMain.cpp` with explicit Props and bounds. `v
 All exports use the same 480 x 800 portrait frame. Page examples use the complete frame with no implicit status bar; StatusBar examples draw in the top 36 pixels and leave the rest white. Default filenames are `.preview/view-<name>--<example>.png`; `--output`, `--json`, and `--rebuild` behave like route capture. JSON discovery exposes `examples` with `view`, `name`, and `bounds`; capture results expose `view`, `example`, output geometry, and cache status.
 
 Both targets use independent build identities and retain per-translation-unit caching. Measure warm end-to-end capture separately from cold compilation; the development target is below one second for an unchanged capture. See [UI architecture](../../docs/ui.md) for ownership, rendering, and portability rules.
+
+Use `capture app://shell/lock --power-press` to preview the transient unlock hint through the real Shell input path. The optional flag sends one power press after the initial page render; it is available for any route and follows normal firmware input behavior.

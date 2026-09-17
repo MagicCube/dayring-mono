@@ -72,6 +72,13 @@ void tick(bool pressed = false) {
     facade().update();
 }
 
+void swipeUp() {
+    swipePoints = {0.98f, 0.5f, 0.6f, 0.5f};
+    swipePending = true;
+    tick();
+    swipePending = false;
+}
+
 void tap(float x, float y) {
     tapPending = true;
     tapX = x;
@@ -190,7 +197,9 @@ void testHomeLaunch() {
     const auto calendarPixels = pixels;
     tick(true);
     assert(facade().isLocked() && frontlightBrightness == 0);
-    tick(true);
+    displayBusy = false;
+    tick();
+    swipeUp();
     assert(!facade().isLocked() && frontlightBrightness == 20);
     displayBusy = false;
     tick();
@@ -403,12 +412,16 @@ void testSwipeHomeIntegration() {
     assert(shell.lock());
     displayBusy = false;
     tick();
-    const auto* lock = manager.currentPageController();
     swipePending = true;
     tick();
     swipePending = false;
-    assert(shell.isLocked() && !shell.isHome() && manager.currentPageController() == lock);
-    assert(shell.unlock() && manager.currentPageController() == original);
+    assert(shell.isLocked());
+    using Type = platform::runtime::InputEvent::Type;
+    assert(shell.onInput({Type::Swipe, 240, 581, 240, 780}));
+    assert(shell.isLocked());
+    assert(shell.onInput({Type::Swipe, 240, 580, 240, 780}));
+    assert(!shell.isLocked() && !shell.isHome() && manager.currentPageController() == original);
+    assert(frontlightBrightness == 20);
     assert(shell.goHome());
 }
 
@@ -478,6 +491,40 @@ Rtc::DateTime clockTime() {
 }  // namespace platform::hal
 
 int main() {
+    {
+        apps::shell::pages::LockPageController lock;
+        lock.onEnter({});
+        const auto reads = chargingReads;
+        chargingState = true;
+        nowMs = 999;
+        assert(!lock.update() && chargingReads == reads);
+        nowMs = 1000;
+        assert(lock.update() && chargingReads == reads + 1);
+        nowMs = 2000;
+        assert(!lock.update());
+        chargingState = false;
+        nowMs = 3000;
+        assert(lock.update());
+        using Type = platform::runtime::InputEvent::Type;
+        assert(lock.onInput({Type::PowerPress}));
+        assert(lock.update());
+        nowMs = 7999;
+        assert(!lock.update());
+        assert(lock.onInput({Type::TouchRelease, 200, 400}));
+        assert(!lock.update());
+        nowMs = 12998;
+        assert(!lock.update());
+        nowMs = 12999;
+        assert(lock.update());
+        assert(!lock.update());
+        assert(lock.onInput({Type::Swipe, 200, 600, 200, 400}));
+        assert(lock.update());
+        lock.onEnter({});
+        nowMs += 5000;
+        assert(!lock.update());
+        nowMs = 0;
+    }
+
     platform::hal::powerManager().begin();
     platform::hal::powerManager().update();
     assert(frontlightBrightness == 20);
@@ -504,8 +551,12 @@ int main() {
     assert(std::any_of(pixels.begin(), pixels.end(), [](uint8_t byte) { return byte != 0; }));
     const auto lockPixels = pixels;
 
-    // Input still reaches Shell while the first frame is refreshing.
+    // Power cannot unlock; an upward swipe still works during refresh.
     tick(true);
+    assert(facade().isLocked() && frontlightBrightness == 0);
+    assert(facade().onInput({platform::runtime::InputEvent::Type::Swipe, 240, 400, 240, 600}));
+    assert(facade().isLocked());
+    swipeUp();
     assert(manager.allowsIdleLock());
     assert(frontlightBrightness == 20);
     assert(manager.needsRender() && refreshCount == 1);
@@ -530,7 +581,7 @@ int main() {
     assert(refreshCount == 3);
 
     // Entering Lock again samples the current RTC immediately.
-    tick(true);
+    swipeUp();
     assert(manager.allowsIdleLock());
     assert(frontlightBrightness == 20);
     clockTime.minute = 35;
@@ -540,7 +591,7 @@ int main() {
     displayBusy = false;
     tick();
     assert(pixels.front() == 0x00 && pixels != lockPixels);
-    assert(!manager.onInput({platform::runtime::InputEvent::Type::TouchPress, 100, 100}));
+    assert(manager.onInput({platform::runtime::InputEvent::Type::TouchPress, 100, 100}));
     assert(!manager.allowsIdleLock());
     assert(frontlightBrightness == 0);
     assert(!shellApplication->navigation().canPop());

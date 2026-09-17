@@ -74,7 +74,11 @@ bool Shell::isHome() const {
 }
 
 void Shell::_handleHomeGesture() {
-    if (isLocked() || isHome()) return;
+    if (isLocked()) {
+        (void)unlock();
+        return;
+    }
+    if (isHome()) return;
     (void)goHome();
 }
 
@@ -109,9 +113,9 @@ const ApplicationManager& Shell::applicationManager() const {
 }
 
 bool Shell::onInput(const InputEvent& event) {
-    if (event.type == InputEvent::Type::PowerPress) return isLocked() ? unlock() : lock();
+    if (event.type == InputEvent::Type::PowerPress && !isLocked()) return lock();
     _powerManager.notifyActivity();
-    return _applicationContainer.onInput(event);
+    return _applicationContainer.onInput(event, isLocked() ? 200 : 0);
 }
 
 }  // namespace platform::runtime
