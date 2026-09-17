@@ -3,6 +3,7 @@
 | Find | File under `src/platform/hal/` | Symbols |
 | --- | --- | --- |
 | Board bring-up and fatal errors | `Hardware.cpp` | `begin`, `fatal` |
+| Centered boot bitmap and monochrome submission | `Hardware.cpp`, `BootImage.h`, `generated/BootImage.h` | `displayBootImage`, `boot::composeRow` |
 | Input sampling and activity | `Hardware.cpp` | `update`, `powerButtonPressed`, `touchTapped`, `touchSwiped`, `hasInputActivity` |
 | Buffer ownership and refresh completion | `Hardware.h`, `Hardware.cpp` | `Framebuffer`, `framebuffer`, `displayReady`, `refreshDisplay` |
 | Checked battery/charging reads | `Hardware.cpp` | `readBatteryPercent`, `readCharging` |

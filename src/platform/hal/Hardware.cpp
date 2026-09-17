@@ -9,6 +9,7 @@
 #include <M5Pm1.h>
 #include <PaperMonoBoard.h>
 
+#include "BootImage.h"
 #include "PowerManager.h"
 #include "RtcClock.h"
 
@@ -21,6 +22,14 @@ InputManager buttons;
 PowerManager powerManagerDevice;
 LedManager leds;
 bool refreshPending = false;
+
+void displayBootImage() {
+    const auto buffer = framebuffer();
+    for (int row = 0; row < buffer.height; ++row) {
+        boot::composeRow(row, buffer.pixels.subspan(row * buffer.strideBytes, buffer.strideBytes));
+    }
+    refreshDisplay();
+}
 
 }  // namespace
 
@@ -40,17 +49,14 @@ void begin() {
         fatal();
     if (!freeink::m5pm1::configureAppPowerButton()) fatal();
 
-    if (!leds.begin()) fatal();
-    leds.clear();
     panel.begin();
     if (!panel.getFrameBuffer() || panel.getDisplayWidth() != 800 || panel.getDisplayHeight() != 480) fatal();
+    displayBootImage();
+
+    if (!leds.begin()) fatal();
+    leds.clear();
     buttons.begin();
     initializeRtc();
-
-    // Clear the panel once before displaying the UI.
-    panel.clearScreen(0xFF);
-
-    refreshDisplay();
 }
 
 void update() {
