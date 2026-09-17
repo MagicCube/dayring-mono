@@ -185,7 +185,7 @@ class PreviewTest(unittest.TestCase):
     def test_isolated_views(self):
         listing = json.loads(invoke("views", "--json").stdout)
         self.assertEqual({e["view"] for e in listing["examples"]},
-                         {"HomePage", "LockPage", "TypographyPage", "LandingPage", "StatusBar"})
+                         {"HomePage", "LockPage", "TypographyPage", "LandingPage", "StatusBar", "BatteryIndicatorView"})
         self.assertIn("reading", invoke("view-help", "TypographyPage").stdout)
         frames = {}
         for example in listing["examples"]:
@@ -202,7 +202,10 @@ class PreviewTest(unittest.TestCase):
         self.assertNotEqual(frames["LandingPage", "maximum"], frames["LandingPage", "minimum"])
         self.assertNotEqual(frames["StatusBar", "default"], frames["StatusBar", "charging"])
         self.assertEqual(set(frames["StatusBar", "default"][480 * 36:]), {255})
-        self.assertEqual(frames["LockPage", "default"], decode(self.capture("app://shell/lock")["output"])[2])
+        # The route samples today's date; the isolated example uses its default date.
+        clock_start = 480 * 85
+        self.assertEqual(frames["LockPage", "default"][clock_start:],
+                         decode(self.capture("app://shell/lock")["output"])[2][clock_start:])
         output = self.directory / "view-error.png"
         output.write_bytes(b"keep")
         for view, example, code in (("missing", "default", "unknown_view"),
