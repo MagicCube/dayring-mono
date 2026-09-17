@@ -14,6 +14,8 @@ Rendering reads explicit Props and bounds, writes to the supplied Canvas, and ma
 
 ## Controllers own state and behavior
 
+Presentation-only pages rendered with default Props use `StaticPageController<PageType>` directly as an Application member. This adapter owns its Page by value, constructs default Props for each render, and inherits the normal route, lifecycle, ownership, and fullscreen contract. For example, `StaticPageController<pages::FirmwareUpdatePage> _firmwareUpdate{true};` declares a fullscreen static page. Do not create a dedicated controller class or forwarding alias solely for rendering delegation or fullscreen selection. Introduce a dedicated page controller when state, input handling, service access, custom Props preparation, route validation, or lifecycle behavior becomes necessary. The controller role is required by the runtime; a handwritten controller class for every page is not.
+
 `ViewController` provides runtime `render`, `update`, and `onInput` dispatch. `PageController : ViewController` adds route validation, enter/leave lifecycle, application association, and fullscreen policy. Its `render` method only prepares Props, calls the owned View, and records layout results; it does not perform drawing.
 
 A concrete controller owns its View and state. State can use simple typed fields; a separate State struct is useful only when it improves clarity. Props are constructed for each render from state and external inputs, rather than stored as a second synchronized copy through property setters. Borrow large data for the duration of rendering and keep the source alive through the call. Do not add universal state setters or dynamic property dictionaries for previews.
@@ -62,4 +64,4 @@ Isolated View previews compile only rendering sources, FreeInk, fonts, typed C++
 
 Keep the two build targets independently cached. Warm screenshots should complete in under one second on the development host; measure end-to-end CLI latency separately from cold compilation. Reuse unchanged translation units, font objects, and SDK objects within each target. Avoid per-frame heap allocation, large input copies, and unnecessary rendering; splitting responsibilities does not require a reactive framework.
 
-See the [UI code map](platform/ui.md) for implementation entry points, [runtime map](platform/runtime.md) for ownership and navigation, and [Preview CLI](../tools/preview/README.md) for commands.
+See the [UI code map](ui-map.md) for implementation entry points, [runtime map](runtime.md) for ownership and navigation, and [Preview CLI](../tools/preview/README.md) for commands.

@@ -1,17 +1,18 @@
 # UI Code Map
 
-Design rules and rationale: [UI architecture](../ui.md).
+Design rules and rationale: [UI architecture](ui.md).
 
 | Find | File | Symbols |
 | --- | --- | --- |
 | Drawing adapter and coordinate types | `src/platform/ui/View.h` | `View`, `Canvas`, `Rect` |
 | Page ownership, lifecycle, fullscreen invalidation | `src/platform/ui/PageController.*` | `PageController`, `setFullscreen` |
+| Presentation-only pages with default Props | `src/platform/ui/StaticPageController.h` | `StaticPageController<PageType>` |
 | Status layout, full-frame composition, touch filtering and home gesture | `src/platform/ui/ApplicationContainer.cpp` | `render`, `needsRender`, `onInput` |
 | Status clock sampling and battery composition | `src/apps/shell/components/StatusBarController.cpp` | `update`, `render` |
 | Minute change timing | `src/platform/runtime/MinuteClock.h` | `MinuteClock::update` |
 | Framebuffer adapter and refresh gate | `src/platform/runtime/Display.cpp` | `displayDevice`, `renderFrame` |
 | Article typography preview and tap/swipe paging | `src/apps/typography/TypographyPage.*` | `render`, `_renderArticle`; `TypographyPageController` handles input |
-| Font IDs, assets and registration | `docs/platform/fonts.md` | Read the font map before font changes |
+| Font IDs, assets and registration | `docs/fonts.md` | Read the font map before font changes |
 | SDK primitives and layout | `freeink-sdk/docs/freeink-ui.md` | Load only for FreeInk drawing changes |
 
 Apps own page controllers and explicitly delegate update/render/input. Consuming input does not invalidate; request rendering for visual changes. This is immediate-mode drawing, not an automatic widget tree.
@@ -26,11 +27,11 @@ Container captures completed bottom-edge upward swipes before application input 
 
 ## PNG Verification
 
-`make preview "app://application/path"` runs production composition and rendering on macOS. Host hardware adapters in `tools/preview/native/` supply fixed clock/battery state and the same 800 × 480 native framebuffer. The runner exports the rotated 480 × 800 portrait frame; Python writes PNG under `.preview/`, while build and dependency/object caches live in `.cache/preview/`. Screenshot names omit the root page and hashes; repeated captures overwrite the same PNG. No SVG or browser rendering is involved. See [Preview CLI](../../tools/preview/README.md) for progressive help and tests.
+`make preview "app://application/path"` runs production composition and rendering on macOS. Host hardware adapters in `tools/preview/native/` supply fixed clock/battery state and the same 800 × 480 native framebuffer. The runner exports the rotated 480 × 800 portrait frame; Python writes PNG under `.preview/`, while build and dependency/object caches live in `.cache/preview/`. Screenshot names omit the root page and hashes; repeated captures overwrite the same PNG. No SVG or browser rendering is involved. See [Preview CLI](../tools/preview/README.md) for progressive help and tests.
 
 Typography supports `app://typography/?article=reading` and `app://typography/?article=display` through shared page validation and entry logic. Swipe/tap paging remains available on-device.
 
-Pure page Views live beside their `PageController` types. `StatusBar` owns drawing and `StatusBarController` samples hardware. `Page<Props>` is a stateless `View<Props>`; lifecycle and fullscreen state belong to `PageController`. Router registers controllers; navigation and the manager expose `currentPageController()`.
+Pure page Views live beside their dedicated `PageController` types when behavior is needed; presentation-only pages use `StaticPageController<PageType>` directly in the Application. `StatusBar` owns drawing and `StatusBarController` samples hardware. `Page<Props>` is a stateless `View<Props>`; lifecycle and fullscreen state belong to `PageController`. Router registers controllers; navigation and the manager expose `currentPageController()`.
 
 Isolated screenshots use `preview views`, `view-help <name>`, and `capture-view <name> --example <name>`. The separate View build excludes runtime and hardware sources.
 

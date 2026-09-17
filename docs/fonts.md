@@ -15,7 +15,7 @@
 | Binding all eight slots | `src/platform/fonts/Fonts.cpp` | `registerFonts` |
 | Registration before every rendered frame | `src/platform/runtime/Display.cpp` | `renderFrame` |
 | Bitmap data and metrics | `src/platform/fonts/generated/*.h` | Generated constants; do not hand-edit |
-| Reproducible generation and metric guards | `tools/generate-fonts.py` | `SPECS`, `generate`, `rasterize` |
+| Reproducible generation and metric guards | `tools/generate-fonts/generate-fonts.py` | `SPECS`, `generate`, `rasterize` |
 | On-device font specimen | `src/apps/typography/TypographyPage.cpp` | `readingArticle`, `displayArticle`, `_renderArticle` |
 | Clock consumer | `src/apps/shell/pages/LockPage.cpp` | `LockPage::render` |
 | Small text consumer | `src/apps/shell/components/StatusBar.cpp` | `StatusBar::render` |
@@ -42,7 +42,7 @@ No CJK or extended Unicode font fallback is installed. SDK ellipsis normalizatio
 
 ## Regeneration and validation
 
-Run `python tools/generate-fonts.py` from a Python environment with Pillow 12.3.0 and fonttools 4.65.0; `clang-format` must be on PATH. Inputs live in `fonts/`; source provenance is in `fonts/README.md`. Generated headers are committed assets; firmware builds do not require Python font libraries. Large generated data tables are exempt from handwritten file-size guidelines.
+Run `python tools/generate-fonts/generate-fonts.py` from a Python environment with Pillow 12.3.0 and fonttools 4.65.0; `clang-format` must be on PATH. Inputs live in `fonts/`; source provenance is in `fonts/README.md`. Generated headers are committed assets; firmware builds do not require Python font libraries. Large generated data tables are exempt from handwritten file-size guidelines.
 
 Assets use 1bpp rasterization for the monochrome framebuffer. Each bitmap is included only by `Fonts.cpp`. Preserve baseline metrics; nominal pixel size is not line height. The generator renders using translated glyph bounds to avoid clipping negative bearings.
 

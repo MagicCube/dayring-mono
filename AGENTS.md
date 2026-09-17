@@ -9,11 +9,13 @@ These guidelines apply to development and code reviews throughout this repositor
 
 ## Architecture Context
 
-Read [Font principles and usage](docs/platform/fonts.md) before choosing fonts or changing typography, font assets, or slots.
+Read [Font principles and usage](docs/fonts.md) before choosing fonts or changing typography, font assets, or slots.
 
 Read [UI architecture and design principles](docs/ui.md) before UI work. Views own all rendering and must not depend on operating-system or device code; controllers own state, behavior, and service access.
 
-Read [PaperMono hardware constraints](docs/platform/hardware.md) before display, touch, or power work. The panel supports **2-bit grayscale (four levels)**; do not infer panel capability from the current framebuffer format.
+Use `StaticPageController<PageType>` for presentation-only pages rendered with default Props. Do not create a dedicated page controller solely to forward rendering or select fullscreen mode. Introduce a dedicated controller when the page needs state, input handling, service access, custom Props preparation, route validation, or lifecycle behavior.
+
+Read [PaperMono hardware constraints](docs/hardware.md) before display, touch, or power work.
 
 ## Display Hardware Contract
 
@@ -28,16 +30,16 @@ Use these code maps to locate implementation; load only the relevant map, then r
 
 | Search topic | Code map |
 | --- | --- |
-| Ownership, lifecycle, URLs, navigation, retention | [Runtime](docs/platform/runtime.md) |
-| Facade, home, lock/restore, input and power policy | [Shell](docs/platform/shell.md) |
-| Pages, composition, invalidation, rendering and hit testing | [UI](docs/platform/ui.md) |
-| Font slots, character coverage, generation and registration | [Fonts](docs/platform/fonts.md) |
-| Hardware ownership, initialization and refresh completion | [HAL](docs/platform/hal.md) |
+| Ownership, lifecycle, URLs, navigation, retention | [Runtime](docs/runtime.md) |
+| Facade, home, lock/restore, input and power policy | [Shell](docs/shell.md) |
+| Pages, composition, invalidation, rendering and hit testing | [UI](docs/ui-map.md) |
+| Font slots, character coverage, generation and registration | [Fonts](docs/fonts.md) |
+| Hardware ownership, initialization and refresh completion | [HAL](docs/hal.md) |
 
 ## UI Design Principles
 
 - The visual direction is Nothing + Teenage Engineering: restrained, functional, instrument-like interfaces with deliberate typography, precise alignment, strong hierarchy, and generous negative space.
-- Translate this direction through the existing font system: Roboto for readable labels and text, Ndot for clocks, large numbers, and short display accents. Follow `docs/platform/fonts.md`; do not introduce decorative fonts merely to imitate a brand.
+- Translate this direction through the existing font system: Roboto for readable labels and text, Ndot for clocks, large numbers, and short display accents. Follow `docs/fonts.md`; do not introduce decorative fonts merely to imitate a brand.
 - Prefer uppercase for short utility labels and compact date metadata when it improves the composition. Do not apply uppercase indiscriminately to body text or long titles.
 - Make spacing and alignment systematic, and give each screen one clear visual focus. Preserve stable positions when optional status information appears or disappears.
 - Keep decoration purposeful. Avoid ornamental technical labels, fake model numbers, gratuitous borders, and icons or indicators that do not convey useful state.

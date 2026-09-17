@@ -24,4 +24,4 @@ Checks: `make test-application-manager`, `make test-navigation`.
 
 `ApplicationRouter::descriptions` exposes optional registration help and fullscreen state. `ApplicationManager::describeRoutes` discovers all applications before any is active, without entering pages; discovery can initialize all registered applications and is intended for short-lived tooling. Page validation uses the side-effect-free `PageController::acceptsLocation` hook before navigation leaves the current page. `LocationQuery` provides percent-decoded query lookup while preserving raw locations for lifecycle callbacks.
 
-The host CLI at `tools/preview/preview` compiles the same application registrations and runtime. See [Preview CLI](../../tools/preview/README.md). Checks: `make test-preview`.
+The host CLI at `tools/preview/preview` compiles the same application registrations and runtime. See [Preview CLI](../tools/preview/README.md). Checks: `make test-preview`.
