@@ -11,6 +11,7 @@
 #include "platform/runtime/ApplicationManager.h"
 #include "platform/ui/Page.h"
 #include "platform/ui/PageController.h"
+#include "platform/ui/StaticPageController.h"
 #include "stubs/NullCanvas.h"
 
 // ApplicationManager lifecycle tests do not require a hardware-backed render target.
@@ -27,6 +28,8 @@ std::vector<std::string> events;
 int resources = 0;
 int controllers = 0;
 int views = 0;
+int viewsCreated = 0;
+int viewsDestroyed = 0;
 int states = 0;
 int controllersCreated = 0;
 int controllersDestroyed = 0;
@@ -53,10 +56,12 @@ class OwnedPage final : public platform::ui::Page<TestProps> {
    public:
     OwnedPage() {
         ++views;
+        ++viewsCreated;
     }
 
     ~OwnedPage() override {
         --views;
+        ++viewsDestroyed;
     }
 
     void render(platform::ui::Canvas&, const platform::ui::Rect&, const Props&) const override {
@@ -108,6 +113,8 @@ class TestApplication final : public Application {
         assert(!_root.owner());
         assert(router().registerPage("/", _root));
         assert(_root.owner() == this);
+        assert(router().registerPage("/static", _static));
+        assert(_static.owner() == this);
         _record("create");
     }
 
@@ -141,6 +148,7 @@ class TestApplication final : public Application {
     }
 
     RootPageController _root;
+    platform::ui::StaticPageController<OwnedPage> _static{true};
     std::string _name;
     std::unique_ptr<Resource> _resource = std::make_unique<Resource>();
 };
@@ -163,7 +171,7 @@ std::unique_ptr<Application> unavailable() {
 
 void expect(std::vector<std::string> expected) {
     assert(events == expected);
-    assert(controllers == resources && views == resources && states == resources);
+    assert(controllers == resources && views == resources * 2 && states == resources);
     events.clear();
 }
 
@@ -329,6 +337,7 @@ void verifyShutdown() {
     assert(resources == 0);
     assert(controllers == 0 && views == 0 && states == 0);
     assert(controllersCreated == controllersDestroyed);
+    assert(viewsCreated == viewsDestroyed);
     if (expectedShutdownEvents.size() > 1 && expectedShutdownEvents.back() == "test:destroy")
         std::sort(events.begin(), events.end());
     assert(events == expectedShutdownEvents);

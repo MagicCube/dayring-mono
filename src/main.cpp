@@ -1,6 +1,7 @@
 #include <Arduino.h>
 
 #include "apps/RegisterApplications.h"
+#include "platform/hal/FirmwareUpload.h"
 #include "platform/hal/Hardware.h"
 #include "platform/runtime/Shell.h"
 
@@ -14,10 +15,12 @@ void setup() {
     if (!apps::registerApplications(shell) || !shell.goHome()) {
         platform::hal::fatal();
     }
+    platform::hal::beginFirmwareUpload();
 }
 
 void loop() {
     platform::hal::update();
+    platform::hal::pollFirmwareUpload();
     Shell::instance().update();
     delay(10);
 }

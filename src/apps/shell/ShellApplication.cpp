@@ -5,6 +5,7 @@ namespace apps::shell {
 void ShellApplication::onCreate() {
     (void)router().registerPage("/", _home, "Application launcher. Alias: app://home");
     (void)router().registerPage("/lock", _lock, "Fullscreen clock. Preview time: --time HH:MM");
+    (void)router().registerPage("/firmware-update", _firmwareUpdate, "Static firmware upload preparation screen.");
 }
 
 void ShellApplication::onEnter(const platform::runtime::Intent& intent) {
@@ -18,7 +19,8 @@ void ShellApplication::onLeave() {
 }
 
 bool ShellApplication::allowsIdleLock() const {
-    return navigation().currentPageController() != &_lock;
+    const auto* page = navigation().currentPageController();
+    return page != &_lock && page != &_firmwareUpdate;
 }
 
 void ShellApplication::update() {

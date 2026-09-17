@@ -26,6 +26,11 @@ bool Shell::registerApplication(std::string_view name, ApplicationManager::Facto
 }
 
 void Shell::update() {
+    if (_firmwareUpdating) {
+        _applicationContainer.update();
+        renderFrame(_applicationContainer);
+        return;
+    }
     dispatchInput(*this);
     if (_powerManager.isIdleLockDue() && _applicationManager.allowsIdleLock()) {
         (void)_lock(Intent{{"shell", "/lock"}}, hal::PowerManager::LockReason::Idle);
@@ -47,6 +52,7 @@ std::optional<AppURL> Shell::resolveURL(std::string_view url) {
 }
 
 bool Shell::open(std::string_view url, OpenMode mode) {
+    if (_firmwareUpdating) return false;
     auto parsed = resolveURL(url);
     if (!parsed) return false;
     const auto resolved = "app://" + parsed->applicationName + parsed->location;
@@ -83,6 +89,7 @@ void Shell::_handleHomeGesture() {
 }
 
 bool Shell::lock() {
+    if (_firmwareUpdating) return false;
     return _lock(Intent{{"shell", "/lock"}});
 }
 
@@ -94,6 +101,7 @@ bool Shell::_lock(const Intent& intent, hal::PowerManager::LockReason reason) {
 }
 
 bool Shell::unlock() {
+    if (_firmwareUpdating) return false;
     if (!isLocked()) return true;
     if (!_applicationManager._restore()) return false;
     _powerManager.setLocked(false);
@@ -113,9 +121,21 @@ const ApplicationManager& Shell::applicationManager() const {
 }
 
 bool Shell::onInput(const InputEvent& event) {
+    if (_firmwareUpdating) return true;
     if (event.type == InputEvent::Type::PowerPress && !isLocked()) return lock();
     _powerManager.notifyActivity();
     return _applicationContainer.onInput(event, isLocked() ? 200 : 0);
+}
+
+bool Shell::prepareFirmwareUpdate() {
+    if (_firmwareUpdating) return true;
+    if (!unlock() || !open("app://shell/firmware-update", OpenMode::Exact)) return false;
+    _firmwareUpdating = true;
+    return true;
+}
+
+bool Shell::isFirmwareUpdateReady() const {
+    return _firmwareUpdating && !_applicationContainer.needsRender() && hal::displayReady();
 }
 
 }  // namespace platform::runtime

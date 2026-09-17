@@ -88,7 +88,8 @@ class PreviewTest(unittest.TestCase):
         self.assertIn("article=reading|display", invoke("help", "typography").stdout)
         result = json.loads(invoke("routes", "--json").stdout)
         self.assertEqual({r["url"] for r in result["routes"]}, {
-            "app://shell/", "app://shell/lock", "app://typography/", "app://calendar/", "app://test/"})
+            "app://shell/", "app://shell/lock", "app://shell/firmware-update",
+            "app://typography/", "app://calendar/", "app://test/"})
         self.assertEqual(result["aliases"]["app://home"], "app://shell/")
         for route in result["routes"]:
             capture = self.capture(route["url"])

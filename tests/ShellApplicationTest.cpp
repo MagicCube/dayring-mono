@@ -650,5 +650,27 @@ int main() {
     testViewDeterminism();
     testCounterBoundariesAndLayoutLifetime();
     testTypographyLaunchAndPaging();
+    // Upload preparation replaces even the lock page and acknowledges only a committed frame.
+    assert(facade().lock());
+    displayBusy = true;
+    const auto beforeUpdate = refreshCount;
+    assert(facade().prepareFirmwareUpdate());
+    assert(!facade().isFirmwareUpdateReady());
+    tick();
+    assert(refreshCount == beforeUpdate);
+    displayBusy = false;
+    tick();
+    assert(refreshCount == beforeUpdate + 1 && !facade().isFirmwareUpdateReady());
+    displayBusy = false;
+    assert(facade().isFirmwareUpdateReady());
+    assert(manager.currentURL() == "app://shell/firmware-update");
+    assert(!manager.allowsIdleLock());
+    assert(!facade().goHome() && !facade().lock() && !facade().unlock());
+    nowMs += 120000;
+    tick(true);
+    swipeUp();
+    assert(facade().prepareFirmwareUpdate());
+    tick();
+    assert(refreshCount == beforeUpdate + 1 && facade().isFirmwareUpdateReady());
     std::cout << "Shell power-button, app-launching, and rendering tests passed\n";
 }

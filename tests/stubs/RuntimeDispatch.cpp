@@ -22,6 +22,10 @@ unsigned long millis() {
 
 namespace platform::hal {
 
+bool displayReady() {
+    return true;
+}
+
 bool powerButtonPressed() {
     return false;
 }

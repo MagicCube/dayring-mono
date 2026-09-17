@@ -20,6 +20,8 @@ class Shell {
                                            Residency residency);
     // Dispatch input, update the foreground app, and render when the display is ready.
     void update();
+    [[nodiscard]] bool prepareFirmwareUpdate();
+    [[nodiscard]] bool isFirmwareUpdateReady() const;
     [[nodiscard]] bool open(std::string_view url, OpenMode mode = OpenMode::Default);
     [[nodiscard]] static std::optional<AppURL> resolveURL(std::string_view url);
     [[nodiscard]] bool goHome();
@@ -38,6 +40,7 @@ class Shell {
     [[nodiscard]] bool _lock(const Intent& intent,
                              hal::PowerManager::LockReason reason = hal::PowerManager::LockReason::Manual);
     hal::PowerManager& _powerManager;
+    bool _firmwareUpdating = false;
     ApplicationManager _applicationManager;
     ui::ApplicationContainer _applicationContainer{_applicationManager, [this] { _handleHomeGesture(); }};
 };

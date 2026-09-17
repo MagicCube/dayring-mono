@@ -1,6 +1,8 @@
 #pragma once
 
 #include "../../platform/runtime/Application.h"
+#include "../../platform/ui/StaticPageController.h"
+#include "pages/FirmwareUpdatePage.h"
 #include "pages/HomePageController.h"
 #include "pages/LockPageController.h"
 
@@ -19,6 +21,7 @@ class ShellApplication final : public platform::runtime::Application {
    private:
     pages::LockPageController _lock;
     pages::HomePageController _home;
+    platform::ui::StaticPageController<pages::FirmwareUpdatePage> _firmwareUpdate{true};
 };
 
 }  // namespace apps::shell
