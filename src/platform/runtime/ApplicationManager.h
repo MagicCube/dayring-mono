@@ -13,6 +13,12 @@
 
 namespace platform::runtime {
 class Shell;
+enum class OpenMode { Default, Exact };
+enum class RouteError { None, InvalidURL, UnknownApplication, UnknownPage, InvalidParameters, Unavailable };
+struct RouteDescription {
+    std::string application;
+    ApplicationRouter::Description page;
+};
 enum class Residency : uint8_t {
     Resident,   // Retained until manager shutdown.
     Transient,  // Retained while among the most recently foregrounded transient apps.
@@ -34,7 +40,11 @@ class ApplicationManager {
     // Instances are created lazily. "home" is reserved for the Shell facade.
     [[nodiscard]] bool registerApplication(std::string_view name, Factory factory, Residency residency);
     // Opens a concrete app URL; facade aliases and lock policy belong to Shell.
-    [[nodiscard]] bool open(std::string_view url);
+    [[nodiscard]] bool open(std::string_view url, OpenMode mode = OpenMode::Default);
+    // Discovery prepares applications but does not enter their pages. Intended before opening an app.
+    [[nodiscard]] std::optional<std::vector<RouteDescription>> describeRoutes();
+    [[nodiscard]] RouteError checkRoute(std::string_view url);
+    [[nodiscard]] std::string currentURL() const;
     void leave();
     void update();
     bool onInput(const InputEvent& event);

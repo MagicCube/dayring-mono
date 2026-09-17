@@ -6,6 +6,7 @@
 #include <cstdlib>
 
 #include "../../platform/fonts/Fonts.h"
+#include "../../platform/runtime/AppURL.h"
 #include "../../platform/runtime/Shell.h"
 
 namespace apps::typography {
@@ -43,8 +44,16 @@ constexpr std::array<ArticleBlock, 6> displayArticle{{
 }};
 }  // namespace
 
-void TypographyPage::onEnter(std::string_view) {
-    _isDisplayArticle = false;
+bool TypographyPage::acceptsLocation(std::string_view location) const {
+    const auto query = platform::runtime::LocationQuery::parse(location);
+    if (!query) return false;
+    const auto article = query->value("article");
+    return !article || *article == "reading" || *article == "display";
+}
+
+void TypographyPage::onEnter(std::string_view location) {
+    const auto query = platform::runtime::LocationQuery::parse(location);
+    _isDisplayArticle = query && query->value("article") == "display";
     _hasRendered = false;
 }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace platform::ui {
@@ -20,13 +21,20 @@ class ApplicationRouter {
 
     // Pages are borrowed and must outlive every use of the registry and navigation stack.
     // Paths are exact, case-sensitive, application-local, and contain no query or fragment.
-    [[nodiscard]] bool registerPage(const char* path, ui::Page& page);
+    struct Description {
+        std::string path;
+        bool fullscreen;
+        std::string help;
+    };
+    [[nodiscard]] bool registerPage(const char* path, ui::Page& page, std::string_view help = {});
+    [[nodiscard]] std::vector<Description> descriptions() const;
     [[nodiscard]] ui::Page* resolve(const char* path) const;
 
    private:
     struct Entry {
         std::string path;
         ui::Page* page;
+        std::string help;
     };
     Application& _application;
     std::vector<Entry> _entries;

@@ -13,7 +13,7 @@ PlaceholderApplication::PlaceholderApplication(std::string title) : _page(std::m
 }
 
 void PlaceholderApplication::onCreate() {
-    (void)router().registerPage("/", _page);
+    (void)router().registerPage("/", _page, "Placeholder with counter and Home action. No query parameters.");
 }
 
 void PlaceholderApplication::onEnter(const platform::runtime::Intent& intent) {

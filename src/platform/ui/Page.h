@@ -32,6 +32,10 @@ class Page : public Component {
     // Navigation supplies the full local location, including query and fragment.
     // Each entered page is left before another entry or application deactivation.
     // Callbacks must not recursively navigate or switch applications.
+    // Validation must not mutate page state; navigation calls it before leaving the current page.
+    [[nodiscard]] virtual bool acceptsLocation(std::string_view) const {
+        return true;
+    }
     virtual void onEnter(std::string_view) {
     }
     virtual void onLeave() {

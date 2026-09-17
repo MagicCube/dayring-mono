@@ -17,3 +17,11 @@ Ordinary `onEnter(Open)` handles route selection/fallback; manager open success 
 New app entry: `src/apps/RegisterApplications.cpp`; example: `src/apps/common/PlaceholderApplication.cpp`. `app://typography/` opens `src/apps/typography/TypographyApplication.*`, which owns `TypographyPage`; HomeScreen launches it alongside Calendar and Test. Production inter-app transitions use [Shell](shell.md).
 
 Checks: `make test-application-manager`, `make test-navigation`.
+
+## Host Preview and Exact Routes
+
+`ApplicationManager::open` and `Shell::open` accept `OpenMode::Exact` to reject unregistered page paths rather than accepting application fallback. `checkRoute` prepares the application and reports URL, registration, and parameter errors; `currentURL` reports the entered location. Invalid parameters are rejected before foreground navigation in both open modes. `Shell::resolveURL` centralizes Home alias resolution.
+
+`ApplicationRouter::descriptions` exposes optional registration help and fullscreen state. `ApplicationManager::describeRoutes` discovers all applications before any is active, without entering pages; discovery can initialize all registered applications and is intended for short-lived tooling. Page validation uses the side-effect-free `Page::acceptsLocation` hook before navigation leaves the current page. `LocationQuery` provides percent-decoded query lookup while preserving raw locations for lifecycle callbacks.
+
+The host CLI at `tools/preview/preview` compiles the same application registrations and runtime. See [Preview CLI](../../tools/preview/README.md). Checks: `make test-preview`.

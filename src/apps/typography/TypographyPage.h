@@ -5,6 +5,7 @@
 namespace apps::typography {
 class TypographyPage final : public platform::ui::Page {
    public:
+    [[nodiscard]] bool acceptsLocation(std::string_view location) const override;
     void onEnter(std::string_view location) override;
     void render(platform::ui::Canvas& canvas, const platform::ui::Rect& bounds) override;
     bool onInput(const platform::runtime::InputEvent& event) override;

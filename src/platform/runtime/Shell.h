@@ -19,7 +19,8 @@ class Shell {
                                            Residency residency);
     // Dispatch input, update the foreground app, and render when the display is ready.
     void update();
-    [[nodiscard]] bool open(std::string_view url);
+    [[nodiscard]] bool open(std::string_view url, OpenMode mode = OpenMode::Default);
+    [[nodiscard]] static std::optional<AppURL> resolveURL(std::string_view url);
     [[nodiscard]] bool goHome();
     [[nodiscard]] bool lock();
     [[nodiscard]] bool unlock();

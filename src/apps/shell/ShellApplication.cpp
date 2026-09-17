@@ -2,8 +2,8 @@
 
 namespace apps::shell {
 void ShellApplication::onCreate() {
-    (void)router().registerPage("/", _home);
-    (void)router().registerPage("/lock", _lock);
+    (void)router().registerPage("/", _home, "Application launcher. Alias: app://home");
+    (void)router().registerPage("/lock", _lock, "Fullscreen clock. Preview time: --time HH:MM");
 }
 
 void ShellApplication::onEnter(const platform::runtime::Intent& intent) {

@@ -24,7 +24,7 @@ bool ApplicationNavigation::_navigate(const char* location, bool replaceTop) {
     if (!text.starts_with('/') || text.starts_with("//")) return false;
     const std::string path(text.substr(0, text.find_first_of("?#")));
     auto* page = _application.router().resolve(path.c_str());
-    if (!page) return false;
+    if (!page || !LocationQuery::parse(text) || !page->acceptsLocation(text)) return false;
     Entry next{std::string(text), page};
     TransitionGuard guard(_transitioning);
     _leavePage();

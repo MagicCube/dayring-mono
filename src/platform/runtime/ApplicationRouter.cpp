@@ -17,11 +17,19 @@ bool validPath(const char* path) {
 ApplicationRouter::ApplicationRouter(Application& application) : _application(application) {
 }
 
-bool ApplicationRouter::registerPage(const char* path, ui::Page& page) {
+bool ApplicationRouter::registerPage(const char* path, ui::Page& page, std::string_view help) {
     if (!validPath(path) || resolve(path) || (page._owner && page._owner != &_application)) return false;
-    _entries.push_back({std::string(path), &page});
+    _entries.push_back({std::string(path), &page, std::string(help)});
     page._owner = &_application;
     return true;
+}
+
+std::vector<ApplicationRouter::Description> ApplicationRouter::descriptions() const {
+    std::vector<Description> result;
+    for (const auto& entry : _entries) {
+        result.push_back({entry.path, entry.page->isFullscreen(), entry.help});
+    }
+    return result;
 }
 
 ui::Page* ApplicationRouter::resolve(const char* path) const {

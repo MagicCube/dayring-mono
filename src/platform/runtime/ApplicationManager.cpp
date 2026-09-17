@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <utility>
 
+#include "../ui/Page.h"
 #include "AppURL.h"
 #include "TransitionGuard.h"
 
@@ -30,13 +31,53 @@ ApplicationManager::ApplicationId ApplicationManager::_find(std::string_view nam
     return _kNoApplication;
 }
 
-bool ApplicationManager::open(std::string_view url) {
+bool ApplicationManager::open(std::string_view url, OpenMode mode) {
     if (_transitioning || _interruption || (_active() && _active()->navigation()._transitioning)) return false;
+    const auto error = checkRoute(url);
+    if (error != RouteError::None && !(mode == OpenMode::Default && error == RouteError::UnknownPage)) return false;
     auto parsed = AppURL::parse(url);
     if (!parsed) return false;
     const auto id = _find(parsed->applicationName);
     TransitionGuard guard(_transitioning);
-    return _enter(id, Intent{std::move(*parsed)});
+    const auto location = parsed->location;
+    if (!_enter(id, Intent{std::move(*parsed)})) return false;
+    return mode != OpenMode::Exact ||
+           (_active()->navigation().currentLocation() == location && _active()->navigation().currentPage() != nullptr);
+}
+
+std::optional<std::vector<RouteDescription>> ApplicationManager::describeRoutes() {
+    if (_transitioning || _active()) return std::nullopt;
+    TransitionGuard guard(_transitioning);
+    std::vector<RouteDescription> result;
+    for (ApplicationId id = 0; id < _entries.size(); ++id) {
+        if (!_prepare(id)) return std::nullopt;
+        for (auto& page : _entries[id].instance->router().descriptions()) {
+            result.push_back({_entries[id].name, std::move(page)});
+        }
+    }
+    return result;
+}
+
+RouteError ApplicationManager::checkRoute(std::string_view url) {
+    if (_transitioning || (_active() && _active()->navigation()._transitioning)) return RouteError::Unavailable;
+    const auto parsed = AppURL::parse(url);
+    if (!parsed) return RouteError::InvalidURL;
+    const auto id = _find(parsed->applicationName);
+    if (id == _kNoApplication) return RouteError::UnknownApplication;
+    TransitionGuard guard(_transitioning);
+    if (!_prepare(id)) return RouteError::Unavailable;
+    const auto path = parsed->location.substr(0, parsed->location.find_first_of("?#"));
+    const auto* page = _entries[id].instance->router().resolve(path.c_str());
+    if (!page) return RouteError::UnknownPage;
+    if (!LocationQuery::parse(parsed->location) || !page->acceptsLocation(parsed->location))
+        return RouteError::InvalidParameters;
+    return RouteError::None;
+}
+
+std::string ApplicationManager::currentURL() const {
+    const auto* active = _active();
+    if (!active || !active->navigation().currentPage()) return {};
+    return "app://" + _entries[_activeId].name + std::string(active->navigation().currentLocation());
 }
 
 bool ApplicationManager::_prepare(ApplicationId id) {
@@ -97,7 +138,9 @@ bool ApplicationManager::_interrupt(const Intent& intent) {
     auto& navigation = _entries[target].instance->navigation();
     const auto path = intent.url.location.substr(0, intent.url.location.find_first_of("?#"));
     auto* page = _entries[target].instance->router().resolve(path.c_str());
-    if (!page || navigation._temporary) return false;
+    if (!page || navigation._temporary || !LocationQuery::parse(intent.url.location) ||
+        !page->acceptsLocation(intent.url.location))
+        return false;
     const Interruption interruption{_activeId, target};
     ApplicationNavigation::Entry temporary{intent.url.location, page};
     _leaveCurrent();

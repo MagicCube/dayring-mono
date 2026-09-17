@@ -34,18 +34,29 @@ void Shell::update() {
     renderFrame(_applicationContainer);
 }
 
-bool Shell::open(std::string_view url) {
+std::optional<AppURL> Shell::resolveURL(std::string_view url) {
     auto parsed = AppURL::parse(url);
-    if (!parsed) return false;
+    if (!parsed) return std::nullopt;
     if (parsed->applicationName == "home") {
-        if (parsed->location != "/") return false;
+        if (parsed->location != "/") return std::nullopt;
         parsed = AppURL::parse(DAYRING_HOME_URL);
-        if (!parsed || parsed->applicationName == "home") return false;
+        if (!parsed || parsed->applicationName == "home") return std::nullopt;
     }
+    return parsed;
+}
+
+bool Shell::open(std::string_view url, OpenMode mode) {
+    auto parsed = resolveURL(url);
+    if (!parsed) return false;
+    const auto resolved = "app://" + parsed->applicationName + parsed->location;
+    if (mode == OpenMode::Exact && _applicationManager.checkRoute(resolved) != RouteError::None) return false;
     const auto path = parsed->location.substr(0, parsed->location.find_first_of("?#"));
-    if (parsed->applicationName == "shell" && path == "/lock") return _lock(Intent{std::move(*parsed)});
+    if (parsed->applicationName == "shell" && path == "/lock") {
+        if (!_lock(Intent{std::move(*parsed)})) return false;
+        return mode != OpenMode::Exact || _applicationManager.currentURL() == resolved;
+    }
     if (isLocked()) return false;
-    return _applicationManager.open("app://" + parsed->applicationName + parsed->location);
+    return _applicationManager.open(resolved, mode);
 }
 
 bool Shell::goHome() {

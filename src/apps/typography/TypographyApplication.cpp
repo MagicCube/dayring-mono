@@ -2,7 +2,9 @@
 
 namespace apps::typography {
 void TypographyApplication::onCreate() {
-    (void)router().registerPage("/", _page);
+    (void)router().registerPage("/", _page,
+                                "article=reading|display (default: reading). Unknown keys are ignored. "
+                                "Example: app://typography/?article=display");
 }
 
 void TypographyApplication::onEnter(const platform::runtime::Intent& intent) {
