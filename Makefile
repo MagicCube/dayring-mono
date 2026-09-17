@@ -8,11 +8,13 @@ CXX_SOURCES := $(shell find src include tests tools/preview -type f \( -name '*.
 
 APPLICATION_SOURCES := src/platform/ui/PageController.cpp src/platform/runtime/Application.cpp src/platform/runtime/ApplicationRouter.cpp \
     src/platform/runtime/ApplicationNavigation.cpp src/platform/runtime/ApplicationManager.cpp src/platform/runtime/AppURL.cpp
-POWER_SOURCES := src/platform/hal/PowerManager.cpp tests/stubs/PowerManager.cpp
+FRONTLIGHT_SOURCES := src/platform/hal/services/FrontlightService.cpp src/platform/hal/Frontlight.cpp
+POWER_SOURCES := src/platform/hal/services/PowerService.cpp $(FRONTLIGHT_SOURCES)
+TIME_SOURCES := src/platform/time/services/TimeService.cpp
 HOST_UI_FLAGS := -isystem freeink-sdk/libs/hardware/Rtc/include -Isrc -Itests/stubs -isystem freeink-sdk/libs/ui/FreeInkUI/include
 
 .DEFAULT_GOAL := build
-.PHONY: format build upload monitor test test-application-manager test-shell test-navigation test-home-entry test-shell-facade test-power-manager test-board-startup
+.PHONY: format build upload monitor test test-application-manager test-shell test-navigation test-home-entry test-shell-facade test-power-service test-board-startup
 
 format:
 	@command -v "$(CLANG_FORMAT)" >/dev/null 2>&1 || { \
@@ -30,7 +32,7 @@ upload: format
 monitor:
 	$(PIO) device monitor -e $(ENV)
 
-test: test-application-manager test-shell test-navigation test-home-entry test-shell-facade test-power-manager test-board-startup
+test: test-application-manager test-shell test-navigation test-home-entry test-shell-facade test-power-service test-board-startup
 
 test-board-startup:
 	@board_test=$$(mktemp /tmp/dayring-board-startup-test.XXXXXX); \
@@ -55,7 +57,7 @@ test-shell:
 	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror -Isrc -Itests/stubs \
 		-isystem freeink-sdk/libs/ui/FreeInkUI/include -isystem freeink-sdk/libs/hardware/Rtc/include \
 		tests/ShellApplicationTest.cpp src/apps/RegisterApplications.cpp src/apps/shell/ShellApplication.cpp src/apps/shell/pages/*.cpp src/apps/shell/components/*.cpp src/apps/shell/views/*.cpp \
-		src/apps/common/*.cpp src/apps/typography/*.cpp src/platform/runtime/Shell.cpp $(POWER_SOURCES) src/platform/ui/ApplicationContainer.cpp \
+		src/apps/common/*.cpp src/apps/typography/*.cpp src/platform/runtime/Shell.cpp src/platform/tasking/services/TaskDispatchService.cpp src/platform/runtime/services/ServiceManager.cpp $(POWER_SOURCES) $(TIME_SOURCES) src/platform/ui/ApplicationContainer.cpp \
 		$(APPLICATION_SOURCES) \
 		src/platform/runtime/Input.cpp src/platform/runtime/Display.cpp src/platform/fonts/Fonts.cpp \
 		freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp -o "$$shell_test" && "$$shell_test"
@@ -71,7 +73,7 @@ test-home-entry:
 	trap 'rm -f "$$home_test"' EXIT; \
 	for home_url in 'app://calendar/path/to/page?id=42&mode=week#top' 'app://home' 'invalid'; do \
 		$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror $(HOST_UI_FLAGS) \
-			-D"DAYRING_HOME_URL=\"$$home_url\"" tests/HomeEntryTest.cpp tests/stubs/RuntimeDispatch.cpp src/apps/shell/components/StatusBar.cpp src/apps/shell/components/StatusBarController.cpp src/apps/shell/views/*.cpp freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp src/platform/runtime/Shell.cpp $(POWER_SOURCES) src/platform/ui/ApplicationContainer.cpp $(APPLICATION_SOURCES) -o "$$home_test" || exit $$?; \
+			-D"DAYRING_HOME_URL=\"$$home_url\"" tests/HomeEntryTest.cpp tests/stubs/RuntimeDispatch.cpp src/apps/shell/components/StatusBar.cpp src/apps/shell/components/StatusBarController.cpp src/apps/shell/views/*.cpp freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp src/platform/runtime/Shell.cpp src/platform/tasking/services/TaskDispatchService.cpp src/platform/runtime/services/ServiceManager.cpp $(POWER_SOURCES) $(TIME_SOURCES) src/platform/ui/ApplicationContainer.cpp $(APPLICATION_SOURCES) -o "$$home_test" || exit $$?; \
 		case "$$home_url" in app://calendar/*) expected=valid ;; *) expected=invalid ;; esac; \
 		"$$home_test" "$$expected" || exit $$?; \
 	done
@@ -80,14 +82,14 @@ test-shell-facade:
 	@facade_test=$$(mktemp /tmp/dayring-shell-facade-test.XXXXXX); \
 	trap 'rm -f "$$facade_test"' EXIT; \
 	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror $(HOST_UI_FLAGS) \
-		tests/ShellFacadeTest.cpp tests/stubs/RuntimeDispatch.cpp src/apps/shell/components/StatusBar.cpp src/apps/shell/components/StatusBarController.cpp src/apps/shell/views/*.cpp freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp src/platform/runtime/Shell.cpp $(POWER_SOURCES) src/platform/ui/ApplicationContainer.cpp $(APPLICATION_SOURCES) \
+		tests/ShellFacadeTest.cpp tests/stubs/RuntimeDispatch.cpp src/apps/shell/components/StatusBar.cpp src/apps/shell/components/StatusBarController.cpp src/apps/shell/views/*.cpp freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp src/platform/runtime/Shell.cpp src/platform/tasking/services/TaskDispatchService.cpp src/platform/runtime/services/ServiceManager.cpp $(POWER_SOURCES) $(TIME_SOURCES) src/platform/ui/ApplicationContainer.cpp $(APPLICATION_SOURCES) \
 		-o "$$facade_test" && "$$facade_test"
 
-test-power-manager:
+test-power-service:
 	@power_test=$$(mktemp /tmp/dayring-power-manager-test.XXXXXX); \
 	trap 'rm -f "$$power_test"' EXIT; \
 	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror -Isrc -Itests/stubs \
-		tests/PowerManagerTest.cpp src/platform/hal/PowerManager.cpp \
+		tests/PowerServiceTest.cpp $(POWER_SOURCES) \
 		-o "$$power_test" && "$$power_test"
 
 .PHONY: test-fonts
@@ -111,7 +113,7 @@ test-preview-runtime:
 	trap 'rm -f "$$preview_test"' EXIT; \
 	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror -Isrc -Itools/preview/native/include \
 		-isystem freeink-sdk/libs/ui/FreeInkUI/include -isystem freeink-sdk/libs/hardware/Rtc/include \
-		tools/preview/tests/RuntimeTest.cpp tools/preview/native/HostHardware.cpp tools/preview/native/FrameBuffer.cpp src/platform/hal/PowerManager.cpp \
+		tools/preview/tests/RuntimeTest.cpp tools/preview/native/HostHardware.cpp tools/preview/native/FrameBuffer.cpp src/platform/hal/Frontlight.cpp \
 		$(APPLICATION_SOURCES) freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp -o "$$preview_test" && "$$preview_test"
 
 # Accept URL goals or command-line assignments without interpolating them into shell code.
@@ -134,3 +136,40 @@ endif
 .PHONY: preview
 preview:
 	@PYTHON="$(PYTHON)" ./tools/preview/preview capture "$$DAYRING_PREVIEW_URL"
+
+.PHONY: test-task-dispatch-service
+test: test-task-dispatch-service
+
+test-task-dispatch-service:
+	@task_test=$$(mktemp /tmp/dayring-task-manager-test.XXXXXX); \
+	trap 'rm -f "$$task_test"' EXIT; \
+	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror -fno-exceptions -Isrc \
+		tests/TaskDispatchServiceTest.cpp src/platform/tasking/services/TaskDispatchService.cpp -o "$$task_test" && "$$task_test"
+
+.PHONY: test-service-manager
+test: test-service-manager
+
+test-service-manager:
+	@service_test=$$(mktemp /tmp/dayring-service-manager-test.XXXXXX); \
+	trap 'rm -f "$$service_test"' EXIT; \
+	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror -fno-exceptions $(HOST_UI_FLAGS) \
+		tests/ServiceManagerTest.cpp tests/stubs/RuntimeDispatch.cpp $(POWER_SOURCES) $(TIME_SOURCES) src/platform/runtime/services/ServiceManager.cpp src/platform/tasking/services/TaskDispatchService.cpp \
+		-o "$$service_test" && "$$service_test"
+
+.PHONY: test-time-service
+test: test-time-service
+
+test-time-service:
+	@time_test=$$(mktemp /tmp/dayring-time-service-test.XXXXXX); \
+	trap 'rm -f "$$time_test"' EXIT; \
+	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror -fno-exceptions $(HOST_UI_FLAGS) \
+		tests/TimeServiceTest.cpp $(TIME_SOURCES) -o "$$time_test" && "$$time_test"
+
+.PHONY: test-frontlight-service
+test: test-frontlight-service
+
+test-frontlight-service:
+	@frontlight_test=$$(mktemp /tmp/dayring-frontlight-service-test.XXXXXX); \
+	trap 'rm -f "$$frontlight_test"' EXIT; \
+	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror -fno-exceptions -Isrc -Itests/stubs \
+		tests/FrontlightServiceTest.cpp $(FRONTLIGHT_SOURCES) -o "$$frontlight_test" && "$$frontlight_test"

@@ -1,5 +1,6 @@
 #pragma once
-#include "../../../platform/runtime/MinuteClock.h"
+#include <cstdint>
+
 #include "../../../platform/ui/PageController.h"
 #include "LockPage.h"
 
@@ -16,7 +17,7 @@ class LockPageController final : public platform::ui::PageController {
     void render(platform::ui::Canvas&, const platform::ui::Rect&) override;
 
    private:
-    platform::runtime::MinuteClock _clock;
+    uint64_t _minuteRevision = 0;
     LockPage _view;
     bool _samplePower(bool refreshPercent);
     uint32_t _powerSampledAt = 0;

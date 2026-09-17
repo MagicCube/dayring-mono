@@ -1,3 +1,4 @@
+#include "platform/hal/RtcClock.h"
 #include "platform/runtime/Input.h"
 #include "platform/ui/ApplicationContainer.h"
 

@@ -10,7 +10,8 @@
 #include <PaperMonoBoard.h>
 
 #include "BootImage.h"
-#include "PowerManager.h"
+#include "FirmwareUpload.h"
+#include "Frontlight.h"
 #include "RtcClock.h"
 
 namespace platform::hal {
@@ -19,7 +20,6 @@ namespace {
 EInkDisplay panel(BoardConfig::ACTIVE.display.sclk, BoardConfig::ACTIVE.display.mosi, BoardConfig::ACTIVE.display.cs,
                   BoardConfig::ACTIVE.display.dc, BoardConfig::ACTIVE.display.rst, BoardConfig::ACTIVE.display.busy);
 InputManager buttons;
-PowerManager powerManagerDevice;
 LedManager leds;
 bool refreshPending = false;
 
@@ -43,7 +43,7 @@ void begin() {
     if (!freeink::papermono::ensureBooted()) fatal();
     // The frontlight shares the EPD supply; enable it before display initialization.
     freeink::papermono::setEpdPower(true);
-    powerManagerDevice.begin();
+    beginFrontlight();
 
     if (ESP.getFlashChipSize() != 16U * 1024U * 1024U || !psramFound() || ESP.getPsramSize() < 8U * 1024U * 1024U)
         fatal();
@@ -57,15 +57,17 @@ void begin() {
     leds.clear();
     buttons.begin();
     initializeRtc();
+    beginFirmwareUpload();
 }
 
 void update() {
     buttons.update();
-    powerManagerDevice.update(!powerButtonPressed() && hasInputActivity());
-    if (!refreshPending || panel.refreshBusy()) return;
-    if (!panel.displayCommitted()) fatal();
-    panel.runMaintenance();
-    refreshPending = false;
+    if (refreshPending && !panel.refreshBusy()) {
+        if (!panel.displayCommitted()) fatal();
+        panel.runMaintenance();
+        refreshPending = false;
+    }
+    pollFirmwareUpload();
 }
 
 Framebuffer framebuffer() {
@@ -114,10 +116,6 @@ bool readCharging(bool& charging) {
     if (!status.chargingKnown) return false;
     charging = status.charging;
     return true;
-}
-
-PowerManager& powerManager() {
-    return powerManagerDevice;
 }
 
 bool hasInputActivity() {

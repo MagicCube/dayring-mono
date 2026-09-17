@@ -59,6 +59,7 @@ std::unique_ptr<Application> createApplication() {
 }  // namespace
 
 int main(int argc, char** argv) {
+    assert(platform::runtime::Shell::instance().startServices());
     assert(argc == 2);
     const bool valid = std::string_view(argv[1]) == "valid";
     auto& shell = platform::runtime::Shell::instance();

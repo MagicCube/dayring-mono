@@ -7,8 +7,6 @@ class InputManager;
 
 namespace platform::hal {
 
-class PowerManager;
-[[nodiscard]] PowerManager& powerManager();
 // Touch activity and ordinary button edges/holds from the latest input sample.
 [[nodiscard]] bool hasInputActivity();
 

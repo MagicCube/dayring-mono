@@ -1,5 +1,7 @@
 #include "Shell.h"
 
+#include <Arduino.h>
+
 #include <utility>
 
 #include "../hal/Hardware.h"
@@ -13,7 +15,7 @@
 
 namespace platform::runtime {
 
-Shell::Shell() : _powerManager(hal::powerManager()) {
+Shell::Shell() {
 }
 
 Shell& Shell::instance() {
@@ -31,9 +33,10 @@ void Shell::update() {
         renderFrame(_applicationContainer);
         return;
     }
+    _services.update(millis());
     dispatchInput(*this);
-    if (_powerManager.isIdleLockDue() && _applicationManager.allowsIdleLock()) {
-        (void)_lock(Intent{{"shell", "/lock"}}, hal::PowerManager::LockReason::Idle);
+    if (_services.power().isIdleLockDue() && _applicationManager.allowsIdleLock()) {
+        (void)_lock(Intent{{"shell", "/lock"}}, power::PowerService::LockReason::Idle);
     }
     _applicationManager.update();
     _applicationContainer.update();
@@ -93,10 +96,10 @@ bool Shell::lock() {
     return _lock(Intent{{"shell", "/lock"}});
 }
 
-bool Shell::_lock(const Intent& intent, hal::PowerManager::LockReason reason) {
+bool Shell::_lock(const Intent& intent, power::PowerService::LockReason reason) {
     if (isLocked()) return true;
     if (!_applicationManager._interrupt(intent)) return false;
-    _powerManager.setLocked(true, reason);
+    _services.power().setLocked(true, reason);
     return true;
 }
 
@@ -104,7 +107,7 @@ bool Shell::unlock() {
     if (_firmwareUpdating) return false;
     if (!isLocked()) return true;
     if (!_applicationManager._restore()) return false;
-    _powerManager.setLocked(false);
+    _services.power().setLocked(false);
     return true;
 }
 
@@ -120,16 +123,38 @@ const ApplicationManager& Shell::applicationManager() const {
     return _applicationManager;
 }
 
+tasking::TaskDispatchService& Shell::tasks() {
+    return _services.tasks();
+}
+
+const tasking::TaskDispatchService& Shell::tasks() const {
+    return _services.tasks();
+}
+
+bool Shell::startServices() {
+    if (_firmwareUpdating) return false;
+    return _services.begin(millis());
+}
+
+ServiceManager& Shell::services() {
+    return _services;
+}
+
+const ServiceManager& Shell::services() const {
+    return _services;
+}
+
 bool Shell::onInput(const InputEvent& event) {
     if (_firmwareUpdating) return true;
     if (event.type == InputEvent::Type::PowerPress && !isLocked()) return lock();
-    _powerManager.notifyActivity();
+    _services.power().notifyActivity();
     return _applicationContainer.onInput(event, isLocked() ? 200 : 0);
 }
 
 bool Shell::prepareFirmwareUpdate() {
     if (_firmwareUpdating) return true;
     if (!unlock() || !open("app://shell/firmware-update", OpenMode::Exact)) return false;
+    _services.stop();
     _firmwareUpdating = true;
     return true;
 }

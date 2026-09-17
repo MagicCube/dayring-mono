@@ -224,6 +224,13 @@ class PreviewTest(unittest.TestCase):
                              for p in build.source_files("view")))
         # Inspect actual compiler dependencies, not only the source allowlist.
         _, _, identity = build.configuration("view")
+        self.assertIn(build.ROOT / "src/platform/runtime/services/ServiceManager.cpp", build.source_files("route"))
+        for service in ("hal/services/FrontlightService.cpp", "hal/services/PowerService.cpp", "time/services/TimeService.cpp"):
+            self.assertIn(build.ROOT / "src/platform" / service, build.source_files("route"))
+            self.assertNotIn(build.ROOT / "src/platform" / service, build.source_files("view"))
+        self.assertNotIn(build.ROOT / "src/platform/runtime/services/ServiceManager.cpp", build.source_files("view"))
+        self.assertIn(build.ROOT / "src/platform/tasking/services/TaskDispatchService.cpp", build.source_files("route"))
+        self.assertNotIn(build.ROOT / "src/platform/tasking/services/TaskDispatchService.cpp", build.source_files("view"))
         for source in build.source_files("view"):
             unit = build.cache.digest([identity, str(source)])
             manifest = build.cache.read_manifest(build.WORK / "build/units" / f"{unit}.json")
@@ -250,7 +257,7 @@ class BuildCacheTest(unittest.TestCase):
             for directory in (root / "src/platform/fonts", root / "src/platform/hal", ui / "src", native):
                 directory.mkdir(parents=True)
             (root / "src/platform/fonts/Fonts.cpp").write_text("")
-            (root / "src/platform/hal/PowerManager.cpp").write_text("")
+            (root / "src/platform/hal/Frontlight.cpp").write_text("")
             (ui / "src/FreeInkUI.cpp").write_text("")
             (native / "Main.cpp").write_text('#include "value.h"\nint main() { return VALUE; }\n')
             (native / "HostHardware.cpp").write_text("")

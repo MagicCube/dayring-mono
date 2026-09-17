@@ -1,5 +1,6 @@
 #pragma once
-#include "../../../platform/runtime/MinuteClock.h"
+#include <cstdint>
+
 #include "../../../platform/ui/ViewController.h"
 #include "../views/BatteryIndicatorController.h"
 #include "StatusBar.h"
@@ -17,7 +18,7 @@ class StatusBarController final : public platform::ui::ViewController {
     StatusBar _view;
     platform::ui::Theme _theme = platform::ui::Theme::Light;
     bool _themeChanged = false;
-    platform::runtime::MinuteClock _clock;
+    uint64_t _minuteRevision = 0;
     views::BatteryIndicatorController _battery;
 };
 

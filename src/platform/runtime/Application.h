@@ -23,6 +23,9 @@ class Application {
     // including requests for the foreground app. onLeave runs on deactivation.
     // Background instances are paused, not necessarily destroyed. Stop any app-owned
     // background work in onLeave(); release owned resources in the destructor.
+    // Cancel page task handles in onLeave(); retain global work handles in services.
+    // Tasks own their inputs and must not capture raw application/controller pointers.
+    // onCreate also runs for route discovery: do not register global work there.
     // Own page controllers and other resources as members or unique_ptrs so destruction releases them together.
     virtual void onCreate() = 0;
     virtual void onEnter(const Intent& intent) = 0;

@@ -5,8 +5,8 @@
 #include <ctime>
 
 #include "FrameBuffer.h"
+#include "platform/hal/Frontlight.h"
 #include "platform/hal/Hardware.h"
-#include "platform/hal/PowerManager.h"
 #include "platform/hal/RtcClock.h"
 
 namespace {
@@ -39,7 +39,7 @@ void configureHardware(uint8_t hour, uint8_t minute, uint8_t battery, bool charg
     chargingValue = charging;
     resetFrame();
     submitted = false;
-    platform::hal::powerManager().begin();
+    platform::hal::beginFrontlight();
 }
 
 bool hasFrame() {
@@ -49,11 +49,6 @@ bool hasFrame() {
 }  // namespace preview
 
 namespace platform::hal {
-
-PowerManager& powerManager() {
-    static PowerManager manager;
-    return manager;
-}
 
 Framebuffer framebuffer() {
     return {preview::framePixels(), 800, 480, 100, preview::grayPixels()};

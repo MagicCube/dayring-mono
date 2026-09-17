@@ -91,6 +91,7 @@ int capture(Shell& shell, char** argv, bool powerPress) {
         !number(argv[6], 1, charging))
         return fail(2, "invalid_state", "Invalid hour, minute, battery, or charging state.");
     preview::configureHardware(hour, minute, battery, charging != 0);
+    if (!shell.startServices()) return fail(5, "service_start_failed", "Service startup failed.");
     const auto target = Shell::resolveURL(argv[2]);
     if (!target) return routeFailure(RouteError::InvalidURL);
     const auto resolved = "app://" + target->applicationName + target->location;
@@ -115,7 +116,8 @@ int main(int argc, char** argv) {
     auto& shell = Shell::instance();
     if (!apps::registerApplications(shell)) return fail(5, "registration_failed", "Application registration failed.");
     if (argc == 2 && std::string_view(argv[1]) == "routes") return listRoutes(shell);
-    if ((argc == 7 || argc == 8) && std::string_view(argv[1]) == "capture")
+    if ((argc == 7 || argc == 8) && std::string_view(argv[1]) == "capture") {
         return capture(shell, argv, argc == 8 && std::string_view(argv[7]) == "1");
+    }
     return fail(2, "invalid_arguments", "Use the tools/preview/preview launcher. The native protocol is internal.");
 }

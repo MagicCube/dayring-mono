@@ -55,8 +55,12 @@ def source_files(target: str = "route") -> list[Path]:
     return sorted([
         *ROOT.glob("src/apps/**/*.cpp"),
         *ROOT.glob("src/platform/runtime/*.cpp"),
+        *ROOT.glob("src/platform/runtime/services/*.cpp"),
+        *ROOT.glob("src/platform/tasking/services/*.cpp"),
         *ROOT.glob("src/platform/ui/*.cpp"),
-        ROOT / "src/platform/hal/PowerManager.cpp",
+        *ROOT.glob("src/platform/hal/services/*.cpp"),
+        *ROOT.glob("src/platform/time/services/*.cpp"),
+        ROOT / "src/platform/hal/Frontlight.cpp",
         NATIVE / "Main.cpp", NATIVE / "HostHardware.cpp", *shared,
     ])
 

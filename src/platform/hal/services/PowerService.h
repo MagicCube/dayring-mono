@@ -1,39 +1,42 @@
 #pragma once
 
-#include <FrontlightManager.h>
-
 #include <cstdint>
 
-namespace platform::hal {
+#include "../../runtime/services/Service.h"
+#include "FrontlightService.h"
 
-class PowerManager {
+namespace platform::power {
+
+class PowerService final : public runtime::Service {
    public:
+    explicit PowerService(frontlight::FrontlightService& frontlight);
+
     enum class LockReason { Manual, Idle };
 
-    void begin();
-    void update(bool inputActive = false);
+    [[nodiscard]] bool start() override;
+    void stop() override;
+    void update(uint32_t now) override;
+    [[nodiscard]] bool isRunning() const;
     void notifyActivity();
     void notifyPowerConnectionChanged();
     void setLocked(bool locked, LockReason reason = LockReason::Manual);
     [[nodiscard]] bool isIdleLockDue() const;
 
    private:
-    void _beginFrontlight();
     void _updateFrontlight();
     void _activateFrontlight();
-    void _setFrontlightBrightness(uint8_t percent);
 
     static constexpr uint8_t _frontlightActiveBrightness = 20;
     static constexpr uint8_t _frontlightDimmedBrightness = 10;
     static constexpr uint32_t _frontlightDimTimeoutMs = 52000;
     static constexpr uint32_t _frontlightOffTimeoutMs = 60000;
     static constexpr uint32_t _frontlightLockTimeoutMs = 10000;
-    FrontlightManager _frontlightDriver;
+    bool _running = false;
     uint32_t _frontlightLastActivityMs = 0;
     uint32_t _lockedLightDurationMs = _frontlightLockTimeoutMs;
-    uint8_t _frontlightBrightness = 0;
+    frontlight::FrontlightService& _frontlight;
     bool _locked = false;
     bool _hasLocked = false;
 };
 
-}  // namespace platform::hal
+}  // namespace platform::power

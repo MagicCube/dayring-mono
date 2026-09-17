@@ -2,9 +2,9 @@
 
 #include <string_view>
 
-#include "../hal/PowerManager.h"
 #include "../ui/ApplicationContainer.h"
 #include "ApplicationManager.h"
+#include "services/ServiceManager.h"
 
 namespace platform::runtime {
 
@@ -31,6 +31,11 @@ class Shell {
     [[nodiscard]] bool isHome() const;
     [[nodiscard]] ApplicationManager& applicationManager();
     [[nodiscard]] const ApplicationManager& applicationManager() const;
+    [[nodiscard]] tasking::TaskDispatchService& tasks();
+    [[nodiscard]] const tasking::TaskDispatchService& tasks() const;
+    [[nodiscard]] bool startServices();
+    [[nodiscard]] ServiceManager& services();
+    [[nodiscard]] const ServiceManager& services() const;
     bool onInput(const InputEvent& event);
 
    private:
@@ -38,9 +43,10 @@ class Shell {
     void _handleHomeGesture();
     ~Shell() = default;
     [[nodiscard]] bool _lock(const Intent& intent,
-                             hal::PowerManager::LockReason reason = hal::PowerManager::LockReason::Manual);
-    hal::PowerManager& _powerManager;
+                             power::PowerService::LockReason reason = power::PowerService::LockReason::Manual);
     bool _firmwareUpdating = false;
+    // Declared before applications so their handles are destroyed first.
+    ServiceManager _services;
     ApplicationManager _applicationManager;
     ui::ApplicationContainer _applicationContainer{_applicationManager, [this] { _handleHomeGesture(); }};
 };

@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "platform/hal/Hardware.h"
-#include "platform/hal/PowerManager.h"
+#include "platform/hal/services/PowerService.h"
 #include "platform/runtime/Shell.h"
 #include "platform/ui/PageController.h"
 
@@ -67,6 +67,7 @@ class TestApplication final : public Application {
         destroyed.push_back(_name);
     }
 
+    platform::tasking::TaskHandle pageTask;
     int state = 0;
     TestPageController root;
     TestPageController detail;
@@ -96,6 +97,7 @@ class TestApplication final : public Application {
 
     void onLeave() override {
         assert(!owner()->open("app://calendar/"));
+        pageTask.cancel();
         events.push_back(_name + ":leave");
     }
 
@@ -132,6 +134,53 @@ std::unique_ptr<Application> createThird() {
 void expect(std::vector<std::string> expected) {
     assert(events == expected);
     events.clear();
+}
+
+class CountingTask final : public platform::tasking::Task {
+   public:
+    explicit CountingTask(int& count) : _count(count) {
+    }
+
+    platform::tasking::ExecutionResult execute(const platform::tasking::TaskContext&) override {
+        ++_count;
+        return platform::tasking::ExecutionResult::Yield;
+    }
+
+   private:
+    int& _count;
+};
+
+void testBackgroundTasks() {
+    auto& shell = Shell::instance();
+    assert(&shell.tasks() == &std::as_const(shell).tasks());
+    int count = 0;
+    auto background = shell.tasks().submit(std::make_unique<CountingTask>(count));
+    assert(shell.open("app://calendar/"));
+    int pageCount = 0;
+    calendar->pageTask = std::move(shell.tasks().submit(std::make_unique<CountingTask>(pageCount)).handle);
+    auto pageId = calendar->pageTask.id();
+    shell.update();
+    assert(count == 4 && pageCount == 4);
+    assert(shell.lock());
+    shell.update();
+    assert(count == 12 && pageCount == 4);
+    assert(!shell.tasks().status(pageId));
+    assert(shell.unlock());
+    assert(shell.open("app://auxiliary/"));
+    shell.update();
+    assert(count == 20);
+    int orphanCount = 0;
+    platform::tasking::TaskId orphanId;
+    {
+        TestApplication temporary("temporary");
+        temporary.pageTask = std::move(shell.tasks().submit(std::make_unique<CountingTask>(orphanCount)).handle);
+        orphanId = temporary.pageTask.id();
+    }
+    assert(shell.tasks().status(orphanId) == platform::tasking::TaskStatus::Cancelled);
+    assert(orphanCount == 0);
+    assert(background.handle.cancel());
+    shell.update();
+    assert(count == 20);
 }
 
 void testIndependentManagers() {
@@ -263,19 +312,20 @@ void testLockedCacheAndEviction() {
 
 void testIdleLockRestoration() {
     auto& shell = Shell::instance();
-    auto& power = platform::hal::powerManager();
-    power.begin();
+    auto& power = platform::runtime::Shell::instance().services().power();
+    power.stop();
+    assert(power.start());
     assert(shell.open("app://calendar/detail?id=idle#saved"));
     auto* original = calendar;
     testNowMs += 52000;
-    power.update();
+    power.update(testNowMs);
     shell.update();
     assert(!shell.isLocked() && brightness == 10);
     testNowMs += 7999;
     shell.update();
     assert(!shell.isLocked());
     ++testNowMs;
-    power.update();
+    power.update(testNowMs);
     shell.update();
     assert(shell.isLocked() && brightness == 0);
     shell.update();
@@ -300,13 +350,14 @@ void testFrontlightBrightness(uint8_t percent) {
 }  // namespace platform::hal
 
 int main() {
-    platform::hal::powerManager().begin();
-    platform::hal::powerManager().update();
+    assert(platform::runtime::Shell::instance().startServices());
+
     testIndependentManagers();
     testCrossApplicationRestoration();
     testShellHistoryRestoration();
     testInactiveShellHistory();
     testLockedCacheAndEviction();
     testIdleLockRestoration();
+    testBackgroundTasks();
     std::cout << "Shell facade, ownership, and restoration tests passed\n";
 }

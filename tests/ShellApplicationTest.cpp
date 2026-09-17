@@ -12,8 +12,8 @@
 #include "apps/shell/components/StatusBar.h"
 #include "apps/typography/TypographyApplication.h"
 #include "platform/hal/Hardware.h"
-#include "platform/hal/PowerManager.h"
 #include "platform/hal/RtcClock.h"
+#include "platform/hal/services/PowerService.h"
 #include "platform/runtime/Display.h"
 #include "platform/runtime/Input.h"
 #include "platform/runtime/Shell.h"
@@ -68,7 +68,6 @@ std::unique_ptr<platform::runtime::Application> createTest() {
 
 void tick(bool pressed = false) {
     powerPressed = pressed;
-    platform::hal::powerManager().update(!pressed && platform::hal::hasInputActivity());
     facade().update();
 }
 
@@ -221,26 +220,6 @@ void testHomeLaunch() {
     assert(frontlightBrightness == 20);
 }
 
-void testMinuteRefresh() {
-    platform::runtime::MinuteClock clock;
-    nowMs = 0;
-    clockTime = {.hour = 23, .minute = 59, .second = 59};
-    assert(clock.update());
-    nowMs = 1000;
-    clockTime = {.hour = 0, .minute = 0, .second = 0};
-    assert(!clock.update());
-    assert(clock.time().hour == 23 && clock.time().minute == 59);
-    nowMs = 2000;
-    clockTime.second = 1;
-    assert(clock.update());
-    assert(clock.time().hour == 0 && clock.time().minute == 0);
-    assert(!clock.update());
-    // A delayed loop catches up without requiring an exact second match.
-    nowMs = 65000;
-    clockTime = {.hour = 0, .minute = 1, .second = 4};
-    assert(clock.update());
-}
-
 void testStatusRefresh() {
     apps::shell::components::StatusBarController status;
     nowMs = 0;
@@ -380,7 +359,7 @@ void testBottomGestureCapture() {
 }
 
 void testSwipeHomeIntegration() {
-    platform::hal::powerManager().notifyActivity();
+    platform::runtime::Shell::instance().services().power().notifyActivity();
     auto& shell = facade();
     auto& manager = shell.applicationManager();
     assert(shell.open("app://calendar/"));
@@ -491,6 +470,7 @@ Rtc::DateTime clockTime() {
 }  // namespace platform::hal
 
 int main() {
+    assert(platform::runtime::Shell::instance().startServices());
     {
         apps::shell::pages::LockPageController lock;
         lock.onEnter({});
@@ -525,8 +505,9 @@ int main() {
         nowMs = 0;
     }
 
-    platform::hal::powerManager().begin();
-    platform::hal::powerManager().update();
+    facade().services().power().stop();
+    assert(facade().services().power().start());
+    facade().services().power().update(nowMs);
     assert(frontlightBrightness == 20);
     auto& manager = facade().applicationManager();
     assert(manager.registerApplication("shell", createShell, platform::runtime::Residency::Resident));
@@ -580,11 +561,13 @@ int main() {
     tick();
     assert(refreshCount == 3);
 
-    // Entering Lock again samples the current RTC immediately.
+    // Re-entering Lock consumes the latest shared time snapshot.
     swipeUp();
     assert(manager.allowsIdleLock());
     assert(frontlightBrightness == 20);
     clockTime.minute = 35;
+    clockTime.second = 1;
+    nowMs += 1000;
     tick(true);
     assert(!manager.allowsIdleLock());
     assert(frontlightBrightness == 0);
@@ -642,7 +625,6 @@ int main() {
     assert(facade().unlock());
     // After unlocking, a tap still launches its target application.
     testHomeLaunch();
-    testMinuteRefresh();
     testStatusRefresh();
     testApplicationContainer();
     testBottomGestureCapture();
@@ -655,6 +637,9 @@ int main() {
     displayBusy = true;
     const auto beforeUpdate = refreshCount;
     assert(facade().prepareFirmwareUpdate());
+    assert(!facade().tasks().isRunning());
+    assert(!facade().startServices());
+    assert(facade().tasks().submit(nullptr).error == platform::tasking::SubmitError::Stopped);
     assert(!facade().isFirmwareUpdateReady());
     tick();
     assert(refreshCount == beforeUpdate);
@@ -670,6 +655,9 @@ int main() {
     tick(true);
     swipeUp();
     assert(facade().prepareFirmwareUpdate());
+    assert(!facade().tasks().isRunning());
+    assert(!facade().startServices());
+    assert(facade().tasks().submit(nullptr).error == platform::tasking::SubmitError::Stopped);
     tick();
     assert(refreshCount == beforeUpdate + 1 && facade().isFirmwareUpdateReady());
     std::cout << "Shell power-button, app-launching, and rendering tests passed\n";

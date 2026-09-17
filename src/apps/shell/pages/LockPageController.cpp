@@ -1,12 +1,14 @@
 #include "LockPageController.h"
 
+#include <Arduino.h>
+
 #include "../../../platform/hal/Hardware.h"
-#include "../../../platform/hal/PowerManager.h"
+#include "../../../platform/runtime/Shell.h"
 
 namespace apps::shell::pages {
 
 void LockPageController::onEnter(std::string_view) {
-    _clock.reset();
+    _minuteRevision = 0;
     _powerSampled = false;
     _powerKnown = false;
     _charging = false;
@@ -23,7 +25,9 @@ bool LockPageController::update() {
     }
     const bool hintChanged = _hintChanged;
     _hintChanged = false;
-    const bool clockChanged = _clock.update();
+    const auto revision = platform::runtime::Shell::instance().services().time().minuteRevision();
+    const bool clockChanged = _minuteRevision != revision;
+    _minuteRevision = revision;
     return _samplePower(clockChanged) || clockChanged || hintChanged;
 }
 
@@ -47,7 +51,8 @@ bool LockPageController::_samplePower(bool refreshPercent) {
     bool changed = false;
     if (platform::hal::readCharging(charging)) {
         changed = charging != _charging;
-        if (_powerKnown && changed) platform::hal::powerManager().notifyPowerConnectionChanged();
+        if (_powerKnown && changed)
+            platform::runtime::Shell::instance().services().power().notifyPowerConnectionChanged();
         _powerKnown = true;
         _charging = charging;
     }
@@ -64,7 +69,7 @@ bool LockPageController::_samplePower(bool refreshPercent) {
 }
 
 void LockPageController::render(platform::ui::Canvas& canvas, const platform::ui::Rect& bounds) {
-    const auto& time = _clock.time();
+    const auto& time = platform::runtime::Shell::instance().services().time().displayTime();
     _view.render(canvas, bounds,
                  {.hour = time.hour,
                   .minute = time.minute,
