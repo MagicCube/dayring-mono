@@ -33,8 +33,8 @@ void LockPage::render(platform::ui::Canvas& canvas, const platform::ui::Rect& bo
         snprintf(charging, sizeof(charging), "CHARGING %u%%", static_cast<unsigned>(props.percent));
     }
     constexpr auto chargingFont = platform::fonts::fontId(platform::fonts::Font::RobotoM);
-    // Ndot's bottom inset and Roboto's top inset contribute 30 px of the 40 px visual gap.
-    const platform::ui::Rect chargingBounds{bounds.x, static_cast<int16_t>(timeBounds.y + timeBounds.height + 10),
+    // Ndot's bottom inset and Roboto's top inset contribute 30 px of the 44 px visual gap.
+    const platform::ui::Rect chargingBounds{bounds.x, static_cast<int16_t>(timeBounds.y + timeBounds.height + 14),
                                             bounds.width, canvas.lineHeight(chargingFont)};
     canvas.text(
         chargingBounds, charging,
