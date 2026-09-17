@@ -14,3 +14,6 @@ SortIncludes: true
 SortUsingDeclarations: true
 ReflowComments: true
 FixNamespaceComments: true
+SeparateDefinitionBlocks: Always
+WrapNamespaceBodyWithEmptyLines: Always
+MaxEmptyLinesToKeep: 1
