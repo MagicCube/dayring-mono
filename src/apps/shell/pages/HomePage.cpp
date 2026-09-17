@@ -1,22 +1,24 @@
-#include "HomeScreen.h"
+#include "HomePage.h"
 
 #include <FreeInkUILayout.h>
 #include <components/controls/button.h>
 
 #include <algorithm>
 
-#include "../../../platform/runtime/Shell.h"
-
 namespace apps::shell::pages {
-void HomeScreen::onEnter(std::string_view) {
-    _interactions.clear();
+
+void HomePage::render(platform::ui::Canvas& canvas, const platform::ui::Rect& bounds, const Props& props) const {
+    RenderResult result;
+    render(canvas, bounds, props, result);
 }
 
-void HomeScreen::render(platform::ui::Canvas& canvas, const platform::ui::Rect& bounds) {
+void HomePage::render(platform::ui::Canvas& canvas, const platform::ui::Rect& bounds, const Props&,
+                      RenderResult& result) const {
     canvas.fill(bounds, freeink::ui::Paint::solid(freeink::ui::Color::White));
     const freeink::ui::DeviceContext device{.width = bounds.right(), .height = bounds.bottom()};
     const freeink::ui::InputSnapshot input{};
-    freeink::ui::Frame<3> frame(canvas, device, input, _interactions);
+    freeink::ui::InteractionBuffer<3> interactions;
+    freeink::ui::Frame<3> frame(canvas, device, input, interactions);
     auto styles = freeink::ui::defaultButtonStyles();
     styles.normal.border = freeink::ui::Paint::solid(freeink::ui::Color::Black);
     styles.normal.borderWidth = 2;
@@ -40,15 +42,11 @@ void HomeScreen::render(platform::ui::Canvas& canvas, const platform::ui::Rect& 
                                  .styles = styles,
                                  .radius = 12});
         });
+    // The output buffer's interaction session must not become a rendering input.
+    result.interactions.clear();
+    for (std::size_t index = 0; index < interactions.count(); ++index) {
+        result.interactions.addInteraction(interactions.data()[index]);
+    }
 }
 
-bool HomeScreen::onInput(const platform::runtime::InputEvent& event) {
-    if (event.type != platform::runtime::InputEvent::Type::TouchRelease) return false;
-    const auto action = _interactions.route({.touchReleased = true, .touchX = event.x, .touchY = event.y});
-    auto& shell = platform::runtime::Shell::instance();
-    if (action.action == 1) return shell.open("app://calendar/");
-    if (action.action == 2) return shell.open("app://test/");
-    if (action.action == 3) return shell.open("app://typography/");
-    return false;
-}
 }  // namespace apps::shell::pages

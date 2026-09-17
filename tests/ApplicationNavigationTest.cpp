@@ -6,10 +6,11 @@
 #include <vector>
 
 #include "platform/runtime/ApplicationManager.h"
-#include "platform/ui/Page.h"
+#include "platform/ui/PageController.h"
 #include "stubs/NullCanvas.h"
 
 namespace {
+
 using platform::runtime::Application;
 using platform::runtime::ApplicationManager;
 using platform::runtime::ApplicationNavigation;
@@ -18,20 +19,23 @@ using platform::runtime::Intent;
 std::vector<std::string> events;
 int brokenInstances = 0;
 
-class TestPage final : public platform::ui::Page {
+class TestPageController final : public platform::ui::PageController {
    public:
     ApplicationNavigation* navigation = nullptr;
     bool tryRecursiveNavigation = false;
+
     void onEnter(std::string_view location) override {
         assert(owner());
         assert(&owner()->navigation() == navigation);
         events.emplace_back("enter:" + std::string(location));
         _checkRecursion();
     }
+
     void onLeave() override {
         events.emplace_back("leave:" + std::string(navigation->currentLocation()));
         _checkRecursion();
     }
+
     void render(platform::ui::Canvas&, const platform::ui::Rect&) override {
     }
 
@@ -46,8 +50,9 @@ class TestPage final : public platform::ui::Page {
 
 class TestApplication final : public Application {
    public:
-    TestPage root;
-    TestPage detail;
+    TestPageController root;
+    TestPageController detail;
+
     void onCreate() override {
         assert(owner());
         root.navigation = &navigation();
@@ -57,14 +62,17 @@ class TestApplication final : public Application {
         assert(router().registerPage("/lock", detail));
         assert(!navigation().push("/"));
     }
+
     void onEnter(const Intent& intent) override {
         // A special test intent lets the application retain its current history.
         if (intent.url.location != "/resume") assert(navigation().replace(intent.url.location.c_str()));
     }
+
     void onLeave() override {
         assert(!navigation().replace("/"));
         events.emplace_back("application:leave");
     }
+
     void render(platform::ui::Canvas&, const platform::ui::Rect&) override {
     }
 };
@@ -74,33 +82,42 @@ class BrokenApplication final : public Application {
     BrokenApplication() {
         ++brokenInstances;
     }
+
     ~BrokenApplication() override {
         --brokenInstances;
     }
+
     void onCreate() override {
     }
+
     void onEnter(const Intent&) override {
         assert(false);
     }
+
     void onLeave() override {
         assert(false);
     }
+
     void render(platform::ui::Canvas&, const platform::ui::Rect&) override {
     }
 };
 
 TestApplication* application = nullptr;
+
 std::unique_ptr<Application> createApplication() {
     auto instance = std::make_unique<TestApplication>();
     application = instance.get();
     return instance;
 }
+
 std::unique_ptr<Application> createOther() {
     return std::make_unique<TestApplication>();
 }
+
 std::unique_ptr<Application> createBroken() {
     return std::make_unique<BrokenApplication>();
 }
+
 void expect(std::vector<std::string> expected) {
     assert(events == expected);
     events.clear();
@@ -111,8 +128,8 @@ void testRegistry() {
     TestApplication otherOwner;
     auto& router = owner.router();
     assert(!owner.owner());
-    TestPage page;
-    TestPage other;
+    TestPageController page;
+    TestPageController other;
     for (const auto* path :
          std::initializer_list<const char*>{nullptr, "", "detail", "//other", "/?x=1", "/#hash", "app://other/"}) {
         assert(!router.registerPage(path, page));
@@ -140,11 +157,11 @@ void testEmptyAndFirstEntry(ApplicationManager& manager) {
     assert(manager.registerApplication("test", createApplication, platform::runtime::Residency::Transient));
     assert(manager.open("app://test/resume"));
     auto& navigation = application->navigation();
-    assert(!navigation.currentPage());
+    assert(!navigation.currentPageController());
     assert(navigation.currentLocation().empty());
     assert(!navigation.canPop() && !navigation.pop());
     assert(navigation.push("/detail?id=42#section"));
-    assert(navigation.currentPage() == &application->detail);
+    assert(navigation.currentPageController() == &application->detail);
     assert(!navigation.canPop() && !navigation.pop());
     expect({"enter:/detail?id=42#section"});
     assert(manager.registerApplication("other", createOther, platform::runtime::Residency::Transient));
@@ -230,6 +247,7 @@ void testReactivationAndHome(ApplicationManager& manager) {
     manager.leave();
     expect({"leave:/", "application:leave"});
 }
+
 }  // namespace
 
 int main() {

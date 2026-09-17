@@ -2,11 +2,12 @@
 
 #include <utility>
 
-#include "../ui/Page.h"
+#include "../ui/PageController.h"
 #include "Application.h"
 #include "TransitionGuard.h"
 
 namespace platform::runtime {
+
 ApplicationNavigation::ApplicationNavigation(Application& application) : _application(application) {
 }
 
@@ -50,7 +51,7 @@ bool ApplicationNavigation::canPop() const {
     return !_temporary && _entries.size() > 1;
 }
 
-ui::Page* ApplicationNavigation::currentPage() const {
+ui::PageController* ApplicationNavigation::currentPageController() const {
     if (_temporary) return _temporary->page;
     return _entries.empty() ? nullptr : _entries.back().page;
 }
@@ -64,14 +65,14 @@ void ApplicationNavigation::_leavePage() {
     if (!_entered) return;
     _entered = false;
 
-    currentPage()->onLeave();
+    currentPageController()->onLeave();
 }
 
 void ApplicationNavigation::_enterPage() {
-    if (_entered || !currentPage()) return;
+    if (_entered || !currentPageController()) return;
     _entered = true;
 
-    currentPage()->onEnter(currentLocation());
+    currentPageController()->onEnter(currentLocation());
     _application.requestRender();
 }
 
@@ -85,4 +86,5 @@ void ApplicationNavigation::_suspend() {
     TransitionGuard guard(_transitioning);
     _leavePage();
 }
+
 }  // namespace platform::runtime

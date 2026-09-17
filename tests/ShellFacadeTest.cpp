@@ -9,11 +9,12 @@
 #include "platform/hal/Hardware.h"
 #include "platform/hal/PowerManager.h"
 #include "platform/runtime/Shell.h"
-#include "platform/ui/Page.h"
+#include "platform/ui/PageController.h"
 
 extern unsigned long testNowMs;
 
 namespace {
+
 using platform::runtime::Application;
 using platform::runtime::ApplicationManager;
 using platform::runtime::Intent;
@@ -26,24 +27,28 @@ static_assert(std::is_default_constructible_v<ApplicationManager>);
 static_assert(!std::is_default_constructible_v<Shell>);
 static_assert(!std::is_copy_constructible_v<Shell>);
 static_assert(!std::is_move_constructible_v<Application>);
-static_assert(!std::is_copy_constructible_v<platform::ui::Page>);
+static_assert(!std::is_copy_constructible_v<platform::ui::PageController>);
 static_assert(std::is_same_v<decltype(std::declval<const Application&>().owner()), const ApplicationManager*>);
-static_assert(std::is_same_v<decltype(std::declval<const platform::ui::Page&>().owner()), const Application*>);
+static_assert(
+    std::is_same_v<decltype(std::declval<const platform::ui::PageController&>().owner()), const Application*>);
 
-class TestPage final : public platform::ui::Page {
+class TestPageController final : public platform::ui::PageController {
    public:
-    explicit TestPage(std::string name) : _name(std::move(name)) {
+    explicit TestPageController(std::string name) : _name(std::move(name)) {
     }
+
     void onEnter(std::string_view location) override {
         assert(owner() && owner()->owner());
         assert(!owner()->owner()->open("app://calendar/"));
         events.push_back(_name + ":enter:" + std::string(location));
     }
+
     void onLeave() override {
         assert(owner() && owner()->owner());
         assert(!owner()->owner()->open("app://calendar/"));
         events.push_back(_name + ":leave");
     }
+
     void render(platform::ui::Canvas&, const platform::ui::Rect&) override {
     }
 
@@ -57,14 +62,17 @@ class TestApplication final : public Application {
         : root(name + ":root"), detail(name + ":detail"), lockPage(name + ":lock"), _name(std::move(name)) {
         assert(!owner() && !root.owner());
     }
+
     ~TestApplication() override {
         destroyed.push_back(_name);
     }
+
     int state = 0;
-    TestPage root;
-    TestPage detail;
-    TestPage lockPage;
+    TestPageController root;
+    TestPageController detail;
+    TestPageController lockPage;
     Intent lastIntent;
+
     void onCreate() override {
         assert(owner());
         assert(router().registerPage("/", root));
@@ -72,6 +80,7 @@ class TestApplication final : public Application {
         assert(router().registerPage("/lock", lockPage));
         assert(root.owner() == this && detail.owner() == this);
     }
+
     void onEnter(const Intent& intent) override {
         assert(!owner()->open("app://calendar/"));
         lastIntent = intent;
@@ -84,10 +93,12 @@ class TestApplication final : public Application {
             assert(!navigation().pop());
         }
     }
+
     void onLeave() override {
         assert(!owner()->open("app://calendar/"));
         events.push_back(_name + ":leave");
     }
+
     void render(platform::ui::Canvas&, const platform::ui::Rect&) override {
     }
 
@@ -97,22 +108,27 @@ class TestApplication final : public Application {
 
 TestApplication* calendar = nullptr;
 TestApplication* shellApplication = nullptr;
+
 std::unique_ptr<Application> createCalendar() {
     auto application = std::make_unique<TestApplication>("calendar");
     calendar = application.get();
     return application;
 }
+
 std::unique_ptr<Application> createShell() {
     auto application = std::make_unique<TestApplication>("shell");
     shellApplication = application.get();
     return application;
 }
+
 std::unique_ptr<Application> createAuxiliary() {
     return std::make_unique<TestApplication>("auxiliary");
 }
+
 std::unique_ptr<Application> createThird() {
     return std::make_unique<TestApplication>("third");
 }
+
 void expect(std::vector<std::string> expected) {
     assert(events == expected);
     events.clear();
@@ -170,12 +186,12 @@ void testCrossApplicationRestoration() {
     assert(!shell.isLocked() && brightness == 20);
     assert(calendar == originalCalendar && calendar->state == 42);
     assert(calendar->lastIntent.reason == Intent::Reason::Restore);
-    assert(calendar->navigation().currentPage() == &calendar->detail);
+    assert(calendar->navigation().currentPageController() == &calendar->detail);
     assert(calendar->navigation().currentLocation() == "/detail?id=43#second");
     assert(calendar->navigation().canPop());
     assert(calendar->navigation().pop());
     assert(calendar->navigation().currentLocation() == "/detail?id=42#first");
-    assert(!shellApplication->navigation().currentPage());
+    assert(!shellApplication->navigation().currentPageController());
     events.clear();
 }
 
@@ -187,7 +203,7 @@ void testShellHistoryRestoration() {
     events.clear();
     assert(shell.open("app://shell/lock?mode=night#clock"));
     expect({"shell:detail:leave", "shell:leave", "shell:enter", "shell:lock:enter:/lock?mode=night#clock"});
-    assert(navigation.currentPage() == &shellApplication->lockPage);
+    assert(navigation.currentPageController() == &shellApplication->lockPage);
     assert(!navigation.canPop());
     assert(shell.unlock());
     expect({"shell:lock:leave", "shell:leave", "shell:enter", "shell:detail:enter:/detail?selected=7#item"});
@@ -215,6 +231,7 @@ void testInactiveShellHistory() {
     shell.applicationManager().leave();
     events.clear();
 }
+
 void testLockedCacheAndEviction() {
     auto& shell = Shell::instance();
     auto& manager = shell.applicationManager();
@@ -243,6 +260,7 @@ void testLockedCacheAndEviction() {
     manager.leave();
     events.clear();
 }
+
 void testIdleLockRestoration() {
     auto& shell = Shell::instance();
     auto& power = platform::hal::powerManager();
@@ -270,12 +288,15 @@ void testIdleLockRestoration() {
     shell.update();
     assert(!shell.isLocked() && brightness == 20);
 }
+
 }  // namespace
 
 namespace platform::hal {
+
 void testFrontlightBrightness(uint8_t percent) {
     brightness = percent;
 }
+
 }  // namespace platform::hal
 
 int main() {

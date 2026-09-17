@@ -1,19 +1,25 @@
 #pragma once
-
 #include "../../platform/ui/Page.h"
 
 namespace apps::typography {
-class TypographyPage final : public platform::ui::Page {
+
+struct TypographyPageProps {
+    bool isDisplayArticle = false;
+};
+
+class TypographyPage final : public platform::ui::Page<TypographyPageProps> {
    public:
-    [[nodiscard]] bool acceptsLocation(std::string_view location) const override;
-    void onEnter(std::string_view location) override;
-    void render(platform::ui::Canvas& canvas, const platform::ui::Rect& bounds) override;
-    bool onInput(const platform::runtime::InputEvent& event) override;
+    struct RenderResult {
+        platform::ui::Rect bounds;
+        platform::ui::Rect previous;
+        platform::ui::Rect next;
+    };
+
+    void render(platform::ui::Canvas&, const platform::ui::Rect&, const Props&) const override;
+    void render(platform::ui::Canvas&, const platform::ui::Rect&, const Props&, RenderResult&) const;
 
    private:
-    void _renderArticle(platform::ui::Canvas& canvas, const platform::ui::Rect& bounds);
-    bool _isDisplayArticle = false;
-    platform::ui::Rect _renderedBounds{};
-    bool _hasRendered = false;
+    void _renderArticle(platform::ui::Canvas&, const platform::ui::Rect&, const Props&) const;
 };
+
 }  // namespace apps::typography

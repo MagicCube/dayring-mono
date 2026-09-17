@@ -1,0 +1,25 @@
+#pragma once
+#include "../../../platform/runtime/MinuteClock.h"
+#include "../../../platform/ui/PageController.h"
+#include "LockPage.h"
+
+namespace apps::shell::pages {
+
+class LockPageController final : public platform::ui::PageController {
+   public:
+    LockPageController() : PageController(true) {
+    }
+
+    void onEnter(std::string_view) override;
+    bool update() override;
+    void render(platform::ui::Canvas&, const platform::ui::Rect&) override;
+
+   private:
+    platform::runtime::MinuteClock _clock;
+    LockPage _view;
+    bool _charging = false;
+    bool _batteryKnown = false;
+    uint8_t _percent = 0;
+};
+
+}  // namespace apps::shell::pages

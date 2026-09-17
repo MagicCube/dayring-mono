@@ -3,21 +3,22 @@
 #include <algorithm>
 
 #include "../runtime/ApplicationManager.h"
-#include "Page.h"
+#include "PageController.h"
 
 namespace platform::ui {
+
 void ApplicationContainer::showStatusBar() {
-    if (auto* page = _applications.currentPage()) page->setFullscreen(false);
+    if (auto* page = _applications.currentPageController()) page->setFullscreen(false);
     _synchronizeVisibility();
 }
 
 void ApplicationContainer::hideStatusBar() {
-    if (auto* page = _applications.currentPage()) page->setFullscreen(true);
+    if (auto* page = _applications.currentPageController()) page->setFullscreen(true);
     _synchronizeVisibility();
 }
 
 bool ApplicationContainer::isStatusBarVisible() const {
-    const auto* page = _applications.currentPage();
+    const auto* page = _applications.currentPageController();
     return page && !page->isFullscreen();
 }
 
@@ -47,7 +48,7 @@ void ApplicationContainer::render(Canvas& canvas, const Rect& bounds) {
     canvas.fill(bounds, freeink::ui::Paint::solid(freeink::ui::Color::White));
     (void)_applications.render(canvas, _contentBounds, true);
     if (_statusBarVisible) _statusBar.render(canvas, {bounds.x, bounds.y, bounds.width, height});
-    _renderedPage = _applications.currentPage();
+    _renderedPage = _applications.currentPageController();
     _renderedStatusBarVisible = _statusBarVisible;
     _dirty = false;
 }
@@ -55,7 +56,7 @@ void ApplicationContainer::render(Canvas& canvas, const Rect& bounds) {
 bool ApplicationContainer::onInput(const runtime::InputEvent& event) {
     using Type = runtime::InputEvent::Type;
     if (event.type == Type::Swipe) {
-        if (!_renderedPage || _applications.currentPage() != _renderedPage ||
+        if (!_renderedPage || _applications.currentPageController() != _renderedPage ||
             isStatusBarVisible() != _renderedStatusBarVisible)
             return false;
         constexpr int kBottomBandHeight = 72;
@@ -70,10 +71,11 @@ bool ApplicationContainer::onInput(const runtime::InputEvent& event) {
     }
     if (event.type == Type::TouchPress || event.type == Type::TouchRelease) {
         // Hit regions still describe the last rendered layout until the pending frame commits.
-        if (_applications.currentPage() != _renderedPage || isStatusBarVisible() != _renderedStatusBarVisible)
+        if (_applications.currentPageController() != _renderedPage || isStatusBarVisible() != _renderedStatusBarVisible)
             return false;
         if (!_contentBounds.contains(event.x, event.y)) return false;
     }
     return _applications.onInput(event);
 }
+
 }  // namespace platform::ui

@@ -4,13 +4,15 @@
 
 #include "../hal/RtcClock.h"
 
-namespace platform::ui {
+namespace platform::runtime {
+
 // Keep the displayed minute stable until the RTC reaches second 01.
 class MinuteClock {
    public:
     void reset() {
         _initialized = false;
     }
+
     [[nodiscard]] bool update() {
         const uint32_t now = millis();
         if (_initialized && now - _sampledAt < _intervalMs) return false;
@@ -23,6 +25,7 @@ class MinuteClock {
         _time = sample;
         return changed;
     }
+
     [[nodiscard]] const Rtc::DateTime& time() const {
         return _time;
     }
@@ -33,4 +36,5 @@ class MinuteClock {
     uint32_t _intervalMs = 0;
     bool _initialized = false;
 };
-}  // namespace platform::ui
+
+}  // namespace platform::runtime

@@ -12,9 +12,11 @@
 #include "InputEvent.h"
 
 namespace platform::runtime {
+
 class Shell;
 enum class OpenMode { Default, Exact };
 enum class RouteError { None, InvalidURL, UnknownApplication, UnknownPage, InvalidParameters, Unavailable };
+
 struct RouteDescription {
     std::string application;
     ApplicationRouter::Description page;
@@ -23,6 +25,7 @@ enum class Residency : uint8_t {
     Resident,   // Retained until manager shutdown.
     Transient,  // Retained while among the most recently foregrounded transient apps.
 };
+
 // Only the active application receives updates and input. Lifecycle callbacks
 // cannot recursively switch applications. Production entry points use Shell.
 class ApplicationManager {
@@ -49,23 +52,26 @@ class ApplicationManager {
     void update();
     bool onInput(const InputEvent& event);
     bool render(ui::Canvas& canvas, const ui::Rect& bounds, bool force = false);
-    [[nodiscard]] ui::Page* currentPage() const;
+    [[nodiscard]] ui::PageController* currentPageController() const;
     [[nodiscard]] bool needsRender() const;
     [[nodiscard]] bool allowsIdleLock() const;
 
    private:
     friend class Shell;
     using ApplicationId = std::size_t;
+
     struct Entry {
         std::string name;
         Factory factory;
         Residency residency;
         std::unique_ptr<Application> instance;
     };
+
     struct Interruption {
         ApplicationId previous;
         ApplicationId presented;
     };
+
     static constexpr ApplicationId _kNoApplication = static_cast<ApplicationId>(-1);
     [[nodiscard]] ApplicationId _find(std::string_view name) const;
     [[nodiscard]] bool _prepare(ApplicationId id);
@@ -83,4 +89,5 @@ class ApplicationManager {
     // Oldest first. Retained background instances receive no dispatch.
     std::vector<ApplicationId> _recentTransients;
 };
+
 }  // namespace platform::runtime

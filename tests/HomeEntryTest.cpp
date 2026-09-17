@@ -4,14 +4,17 @@
 #include <string_view>
 
 #include "platform/runtime/Shell.h"
-#include "platform/ui/Page.h"
+#include "platform/ui/PageController.h"
 
 namespace platform::hal {
+
 void testFrontlightBrightness(uint8_t) {
 }
+
 }  // namespace platform::hal
 
 namespace {
+
 using platform::runtime::Application;
 using platform::runtime::ApplicationManager;
 using platform::runtime::Intent;
@@ -19,34 +22,40 @@ Intent received;
 int enters = 0;
 int leaves = 0;
 
-class HomePage final : public platform::ui::Page {
+class HomePageController final : public platform::ui::PageController {
    public:
     void render(platform::ui::Canvas&, const platform::ui::Rect&) override {
     }
 };
+
 class HomeApplication final : public Application {
    public:
     void onCreate() override {
         assert(router().registerPage("/", _page));
         assert(router().registerPage("/path/to/page", _page));
     }
+
     void onEnter(const Intent& intent) override {
         ++enters;
         received = intent;
         assert(navigation().replace(intent.url.location.c_str()));
     }
+
     void onLeave() override {
         ++leaves;
     }
+
     void render(platform::ui::Canvas&, const platform::ui::Rect&) override {
     }
 
    private:
-    HomePage _page;
+    HomePageController _page;
 };
+
 std::unique_ptr<Application> createApplication() {
     return std::make_unique<HomeApplication>();
 }
+
 }  // namespace
 
 int main(int argc, char** argv) {

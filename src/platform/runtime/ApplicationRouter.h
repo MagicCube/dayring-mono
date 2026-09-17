@@ -5,10 +5,13 @@
 #include <vector>
 
 namespace platform::ui {
-class Page;
+
+class PageController;
+
 }
 
 namespace platform::runtime {
+
 class Application;
 
 class ApplicationRouter {
@@ -19,24 +22,27 @@ class ApplicationRouter {
     ApplicationRouter(ApplicationRouter&&) = delete;
     ApplicationRouter& operator=(ApplicationRouter&&) = delete;
 
-    // Pages are borrowed and must outlive every use of the registry and navigation stack.
+    // Page controllers are borrowed and must outlive every use of the registry and navigation stack.
     // Paths are exact, case-sensitive, application-local, and contain no query or fragment.
     struct Description {
         std::string path;
         bool fullscreen;
         std::string help;
     };
-    [[nodiscard]] bool registerPage(const char* path, ui::Page& page, std::string_view help = {});
+
+    [[nodiscard]] bool registerPage(const char* path, ui::PageController& page, std::string_view help = {});
     [[nodiscard]] std::vector<Description> descriptions() const;
-    [[nodiscard]] ui::Page* resolve(const char* path) const;
+    [[nodiscard]] ui::PageController* resolve(const char* path) const;
 
    private:
     struct Entry {
         std::string path;
-        ui::Page* page;
+        ui::PageController* page;
         std::string help;
     };
+
     Application& _application;
     std::vector<Entry> _entries;
 };
+
 }  // namespace platform::runtime

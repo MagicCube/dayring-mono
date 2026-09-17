@@ -3,14 +3,12 @@
 #include <FreeInkUILayout.h>
 
 #include <array>
-#include <cstdlib>
 
 #include "../../platform/fonts/Fonts.h"
-#include "../../platform/runtime/AppURL.h"
-#include "../../platform/runtime/Shell.h"
 
 namespace apps::typography {
 namespace {
+
 using platform::fonts::Font;
 using platform::fonts::fontId;
 using namespace freeink::ui;
@@ -42,24 +40,20 @@ constexpr std::array<ArticleBlock, 6> displayArticle{{
      Font::RobotoM},
     {"Field notes / No. 02\nA study in dots, numbers, and the spaces between them.", Font::RobotoS},
 }};
+
 }  // namespace
 
-bool TypographyPage::acceptsLocation(std::string_view location) const {
-    const auto query = platform::runtime::LocationQuery::parse(location);
-    if (!query) return false;
-    const auto article = query->value("article");
-    return !article || *article == "reading" || *article == "display";
+void TypographyPage::render(platform::ui::Canvas& canvas, const platform::ui::Rect& bounds, const Props& props,
+                            RenderResult& result) const {
+    render(canvas, bounds, props);
+    const auto nextX = static_cast<int16_t>(bounds.width * 2 / 3);
+    result = {.bounds = bounds,
+              .previous = {bounds.x, bounds.y, static_cast<int16_t>(bounds.width / 3), bounds.height},
+              .next = {static_cast<int16_t>(bounds.x + nextX), bounds.y, static_cast<int16_t>(bounds.width - nextX),
+                       bounds.height}};
 }
 
-void TypographyPage::onEnter(std::string_view location) {
-    const auto query = platform::runtime::LocationQuery::parse(location);
-    _isDisplayArticle = query && query->value("article") == "display";
-    _hasRendered = false;
-}
-
-void TypographyPage::render(platform::ui::Canvas& canvas, const platform::ui::Rect& bounds) {
-    _renderedBounds = bounds;
-    _hasRendered = true;
+void TypographyPage::render(platform::ui::Canvas& canvas, const platform::ui::Rect& bounds, const Props& props) const {
     canvas.fill(bounds, Paint::solid(Color::White));
     const Rect content = bounds.inset(Insets{.top = 24, .right = 24, .bottom = 24, .left = 24});
     layoutLinear(
@@ -67,15 +61,17 @@ void TypographyPage::render(platform::ui::Canvas& canvas, const platform::ui::Re
         [](uint8_t index) { return index == 0 ? LayoutLength::flexible() : LayoutLength::fixed(28); },
         [&](uint8_t index, Rect slot) {
             if (index == 0) {
-                _renderArticle(canvas, slot);
+                _renderArticle(canvas, slot, props);
             } else {
-                canvas.text(slot, _isDisplayArticle ? "02 / NDot 57" : "01 / Roboto", {.font = fontId(Font::RobotoS)});
+                canvas.text(slot, props.isDisplayArticle ? "02 / NDot 57" : "01 / Roboto",
+                            {.font = fontId(Font::RobotoS)});
             }
         });
 }
 
-void TypographyPage::_renderArticle(platform::ui::Canvas& canvas, const platform::ui::Rect& bounds) {
-    const auto& blocks = _isDisplayArticle ? displayArticle : readingArticle;
+void TypographyPage::_renderArticle(platform::ui::Canvas& canvas, const platform::ui::Rect& bounds,
+                                    const Props& props) const {
+    const auto& blocks = props.isDisplayArticle ? displayArticle : readingArticle;
     layoutLinear(
         bounds, Axis::Column, 16, static_cast<uint8_t>(blocks.size()),
         [&](uint8_t index) {
@@ -89,31 +85,4 @@ void TypographyPage::_renderArticle(platform::ui::Canvas& canvas, const platform
         });
 }
 
-bool TypographyPage::onInput(const platform::runtime::InputEvent& event) {
-    using Type = platform::runtime::InputEvent::Type;
-    if (event.type == Type::Back) return platform::runtime::Shell::instance().goHome();
-    if (!_hasRendered) return false;
-    bool next;
-    if (event.type == Type::TouchRelease && _renderedBounds.contains(event.x, event.y)) {
-        const auto relativeX = event.x - _renderedBounds.x;
-        if (relativeX < _renderedBounds.width / 3) {
-            next = false;
-        } else if (relativeX >= _renderedBounds.width * 2 / 3) {
-            next = true;
-        } else {
-            return false;
-        }
-    } else if (event.type == Type::Swipe && _renderedBounds.contains(event.startX, event.startY)) {
-        const int dx = event.x - event.startX;
-        const int dy = event.y - event.startY;
-        if (std::abs(dx) < 40 || std::abs(dx) <= std::abs(dy)) return false;
-        next = dx < 0;
-    } else {
-        return false;
-    }
-    if (next == _isDisplayArticle) return false;
-    _isDisplayArticle = next;
-    _hasRendered = false;
-    return true;
-}
 }  // namespace apps::typography

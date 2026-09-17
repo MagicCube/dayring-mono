@@ -1,23 +1,22 @@
 #pragma once
-
-#include "../../../platform/ui/Component.h"
-#include "../../../platform/ui/MinuteClock.h"
+#include "../../../platform/ui/View.h"
+#include "../views/BatteryIndicatorView.h"
 
 namespace apps::shell::components {
-class StatusBar final : public platform::ui::Component {
+
+struct StatusBarProps {
+    uint8_t hour = 12;
+    uint8_t minute = 34;
+    uint8_t percent = 75;
+    bool charging = false;
+    platform::ui::Theme theme = platform::ui::Theme::Light;
+};
+
+class StatusBar final : public platform::ui::View<StatusBarProps> {
    public:
     static constexpr int16_t kHeight = 36;
-    void reset();
-    [[nodiscard]] bool update();
-    void render(platform::ui::Canvas& canvas, const platform::ui::Rect& bounds) override;
 
-   private:
-    platform::ui::MinuteClock _clock;
-    uint32_t _chargingSampledAt = 0;
-    uint32_t _batterySampledAt = 0;
-    uint8_t _percent = 0;
-    bool _charging = false;
-    bool _sampled = false;
-    bool _batteryKnown = false;
+    void render(platform::ui::Canvas&, const platform::ui::Rect&, const Props&) const override;
 };
+
 }  // namespace apps::shell::components

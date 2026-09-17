@@ -1,12 +1,13 @@
 #pragma once
 
-#include "../ui/Component.h"
+#include "../ui/View.h"
 #include "ApplicationNavigation.h"
 #include "ApplicationRouter.h"
 #include "InputEvent.h"
 #include "Intent.h"
 
 namespace platform::runtime {
+
 class ApplicationManager;
 
 class Application {
@@ -22,16 +23,20 @@ class Application {
     // including requests for the foreground app. onLeave runs on deactivation.
     // Background instances are paused, not necessarily destroyed. Stop any app-owned
     // background work in onLeave(); release owned resources in the destructor.
-    // Own pages and other resources as members or unique_ptrs so destruction releases them together.
+    // Own page controllers and other resources as members or unique_ptrs so destruction releases them together.
     virtual void onCreate() = 0;
     virtual void onEnter(const Intent& intent) = 0;
     virtual void onLeave() = 0;
+
     [[nodiscard]] virtual bool allowsIdleLock() const {
         return true;
     }
+
     virtual void update() {
     }
+
     virtual void render(ui::Canvas& canvas, const ui::Rect& bounds) = 0;
+
     virtual bool onInput(const InputEvent&) {
         return false;
     }
@@ -40,21 +45,27 @@ class Application {
     [[nodiscard]] ApplicationManager* owner() {
         return _owner;
     }
+
     [[nodiscard]] const ApplicationManager* owner() const {
         return _owner;
     }
+
     [[nodiscard]] bool needsRender() const {
         return _needsRender;
     }
+
     [[nodiscard]] ApplicationRouter& router() {
         return _router;
     }
+
     [[nodiscard]] const ApplicationRouter& router() const {
         return _router;
     }
+
     [[nodiscard]] ApplicationNavigation& navigation() {
         return _navigation;
     }
+
     [[nodiscard]] const ApplicationNavigation& navigation() const {
         return _navigation;
     }
@@ -65,7 +76,7 @@ class Application {
     }
 
    private:
-    friend class ui::Page;
+    friend class ui::PageController;
     friend class ApplicationManager;
     friend class ApplicationNavigation;
     void _activate(const Intent& intent);
@@ -75,4 +86,5 @@ class Application {
     ApplicationRouter _router;
     ApplicationNavigation _navigation;
 };
+
 }  // namespace platform::runtime

@@ -1,11 +1,12 @@
 ENV ?= papermono
 PYTHON ?= $(CURDIR)/.pio-core/penv/bin/python
 PIO = "$(PYTHON)" -m platformio
-CLANG_FORMAT ?= clang-format
+# GUI terminals may omit Homebrew from PATH even when clang-format is installed.
+CLANG_FORMAT ?= $(firstword $(shell command -v clang-format 2>/dev/null) $(wildcard /opt/homebrew/bin/clang-format /usr/local/bin/clang-format /opt/homebrew/opt/llvm/bin/clang-format /usr/local/opt/llvm/bin/clang-format) clang-format)
 HOST_CXX ?= c++
 CXX_SOURCES := $(shell find src include tests tools/preview -type f \( -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \))
 
-APPLICATION_SOURCES := src/platform/ui/Page.cpp src/platform/runtime/Application.cpp src/platform/runtime/ApplicationRouter.cpp \
+APPLICATION_SOURCES := src/platform/ui/PageController.cpp src/platform/runtime/Application.cpp src/platform/runtime/ApplicationRouter.cpp \
     src/platform/runtime/ApplicationNavigation.cpp src/platform/runtime/ApplicationManager.cpp src/platform/runtime/AppURL.cpp
 POWER_SOURCES := src/platform/hal/PowerManager.cpp tests/stubs/PowerManager.cpp
 HOST_UI_FLAGS := -isystem freeink-sdk/libs/hardware/Rtc/include -Isrc -Itests/stubs -isystem freeink-sdk/libs/ui/FreeInkUI/include
@@ -14,6 +15,10 @@ HOST_UI_FLAGS := -isystem freeink-sdk/libs/hardware/Rtc/include -Isrc -Itests/st
 .PHONY: format build upload monitor test test-application-manager test-shell test-navigation test-home-entry test-shell-facade test-power-manager test-board-startup
 
 format:
+	@command -v "$(CLANG_FORMAT)" >/dev/null 2>&1 || { \
+		echo "clang-format not found. Install it or run make CLANG_FORMAT=/absolute/path/to/clang-format build." >&2; \
+		exit 1; \
+	}
 	$(CLANG_FORMAT) -i $(CXX_SOURCES)
 
 build: format
@@ -49,8 +54,8 @@ test-shell:
 	trap 'rm -f "$$shell_test"' EXIT; \
 	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror -Isrc -Itests/stubs \
 		-isystem freeink-sdk/libs/ui/FreeInkUI/include -isystem freeink-sdk/libs/hardware/Rtc/include \
-		tests/ShellApplicationTest.cpp src/apps/RegisterApplications.cpp src/apps/shell/ShellApplication.cpp src/apps/shell/pages/*.cpp src/apps/shell/components/*.cpp \
-		src/apps/common/PlaceholderApplication.cpp src/apps/typography/*.cpp src/platform/runtime/Shell.cpp $(POWER_SOURCES) src/platform/ui/ApplicationContainer.cpp \
+		tests/ShellApplicationTest.cpp src/apps/RegisterApplications.cpp src/apps/shell/ShellApplication.cpp src/apps/shell/pages/*.cpp src/apps/shell/components/*.cpp src/apps/shell/views/*.cpp \
+		src/apps/common/*.cpp src/apps/typography/*.cpp src/platform/runtime/Shell.cpp $(POWER_SOURCES) src/platform/ui/ApplicationContainer.cpp \
 		$(APPLICATION_SOURCES) \
 		src/platform/runtime/Input.cpp src/platform/runtime/Display.cpp src/platform/fonts/Fonts.cpp \
 		freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp -o "$$shell_test" && "$$shell_test"
@@ -66,7 +71,7 @@ test-home-entry:
 	trap 'rm -f "$$home_test"' EXIT; \
 	for home_url in 'app://calendar/path/to/page?id=42&mode=week#top' 'app://home' 'invalid'; do \
 		$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror $(HOST_UI_FLAGS) \
-			-D"DAYRING_HOME_URL=\"$$home_url\"" tests/HomeEntryTest.cpp tests/stubs/RuntimeDispatch.cpp src/apps/shell/components/StatusBar.cpp freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp src/platform/runtime/Shell.cpp $(POWER_SOURCES) src/platform/ui/ApplicationContainer.cpp $(APPLICATION_SOURCES) -o "$$home_test" || exit $$?; \
+			-D"DAYRING_HOME_URL=\"$$home_url\"" tests/HomeEntryTest.cpp tests/stubs/RuntimeDispatch.cpp src/apps/shell/components/StatusBar.cpp src/apps/shell/components/StatusBarController.cpp src/apps/shell/views/*.cpp freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp src/platform/runtime/Shell.cpp $(POWER_SOURCES) src/platform/ui/ApplicationContainer.cpp $(APPLICATION_SOURCES) -o "$$home_test" || exit $$?; \
 		case "$$home_url" in app://calendar/*) expected=valid ;; *) expected=invalid ;; esac; \
 		"$$home_test" "$$expected" || exit $$?; \
 	done
@@ -75,7 +80,7 @@ test-shell-facade:
 	@facade_test=$$(mktemp /tmp/dayring-shell-facade-test.XXXXXX); \
 	trap 'rm -f "$$facade_test"' EXIT; \
 	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror $(HOST_UI_FLAGS) \
-		tests/ShellFacadeTest.cpp tests/stubs/RuntimeDispatch.cpp src/apps/shell/components/StatusBar.cpp freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp src/platform/runtime/Shell.cpp $(POWER_SOURCES) src/platform/ui/ApplicationContainer.cpp $(APPLICATION_SOURCES) \
+		tests/ShellFacadeTest.cpp tests/stubs/RuntimeDispatch.cpp src/apps/shell/components/StatusBar.cpp src/apps/shell/components/StatusBarController.cpp src/apps/shell/views/*.cpp freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp src/platform/runtime/Shell.cpp $(POWER_SOURCES) src/platform/ui/ApplicationContainer.cpp $(APPLICATION_SOURCES) \
 		-o "$$facade_test" && "$$facade_test"
 
 test-power-manager:
@@ -106,7 +111,7 @@ test-preview-runtime:
 	trap 'rm -f "$$preview_test"' EXIT; \
 	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror -Isrc -Itools/preview/native/include \
 		-isystem freeink-sdk/libs/ui/FreeInkUI/include -isystem freeink-sdk/libs/hardware/Rtc/include \
-		tools/preview/tests/RuntimeTest.cpp tools/preview/native/HostHardware.cpp src/platform/hal/PowerManager.cpp \
+		tools/preview/tests/RuntimeTest.cpp tools/preview/native/HostHardware.cpp tools/preview/native/FrameBuffer.cpp src/platform/hal/PowerManager.cpp \
 		$(APPLICATION_SOURCES) freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp -o "$$preview_test" && "$$preview_test"
 
 # Accept URL goals or command-line assignments without interpolating them into shell code.

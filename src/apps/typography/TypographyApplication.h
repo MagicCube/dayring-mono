@@ -1,9 +1,10 @@
 #pragma once
 
 #include "../../platform/runtime/Application.h"
-#include "TypographyPage.h"
+#include "TypographyPageController.h"
 
 namespace apps::typography {
+
 class TypographyApplication final : public platform::runtime::Application {
    public:
     void onCreate() override;
@@ -13,6 +14,7 @@ class TypographyApplication final : public platform::runtime::Application {
     bool onInput(const platform::runtime::InputEvent& event) override;
 
    private:
-    TypographyPage _page;
+    TypographyPageController _page;
 };
+
 }  // namespace apps::typography

@@ -3,38 +3,44 @@
 #include <functional>
 #include <utility>
 
-#include "../../apps/shell/components/StatusBar.h"
-#include "Component.h"
+#include "../../apps/shell/components/StatusBarController.h"
+#include "ViewController.h"
 
 namespace platform::runtime {
+
 class ApplicationManager;
+
 }
 
 namespace platform::ui {
-class Page;
-class ApplicationContainer final : public Component {
+
+class PageController;
+
+class ApplicationContainer final {
    public:
     explicit ApplicationContainer(runtime::ApplicationManager& applications, std::function<void()> homeGesture = {})
         : _applications(applications), _homeGesture(std::move(homeGesture)) {
     }
+
     void showStatusBar();
     void hideStatusBar();
     [[nodiscard]] bool isStatusBarVisible() const;
     void update();
     [[nodiscard]] bool needsRender() const;
-    void render(Canvas& canvas, const Rect& bounds) override;
-    bool onInput(const runtime::InputEvent& event) override;
+    void render(Canvas& canvas, const Rect& bounds);
+    bool onInput(const runtime::InputEvent& event);
 
    private:
     void _synchronizeVisibility();
     runtime::ApplicationManager& _applications;
-    apps::shell::components::StatusBar _statusBar;
+    apps::shell::components::StatusBarController _statusBar;
     std::function<void()> _homeGesture;
     Rect _bounds{};
     Rect _contentBounds{};
-    const Page* _renderedPage = nullptr;
+    const PageController* _renderedPage = nullptr;
     bool _renderedStatusBarVisible = false;
     bool _statusBarVisible = false;
     bool _dirty = true;
 };
+
 }  // namespace platform::ui

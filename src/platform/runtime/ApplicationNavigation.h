@@ -6,10 +6,13 @@
 #include <vector>
 
 namespace platform::ui {
-class Page;
+
+class PageController;
+
 }
 
 namespace platform::runtime {
+
 class Application;
 
 class ApplicationNavigation {
@@ -25,7 +28,7 @@ class ApplicationNavigation {
     [[nodiscard]] bool replace(const char* location);
     [[nodiscard]] bool pop();
     [[nodiscard]] bool canPop() const;
-    [[nodiscard]] ui::Page* currentPage() const;
+    [[nodiscard]] ui::PageController* currentPageController() const;
     // The view remains valid until the next successful navigation operation.
     [[nodiscard]] std::string_view currentLocation() const;
 
@@ -33,10 +36,12 @@ class ApplicationNavigation {
     friend class Application;
     friend class ApplicationManager;
     explicit ApplicationNavigation(Application& application);
+
     struct Entry {
         std::string location;
-        ui::Page* page;
+        ui::PageController* page;
     };
+
     [[nodiscard]] bool _navigate(const char* location, bool replaceTop);
     void _leavePage();
     void _enterPage();
@@ -49,4 +54,5 @@ class ApplicationNavigation {
     bool _entered = false;
     bool _transitioning = false;
 };
+
 }  // namespace platform::runtime

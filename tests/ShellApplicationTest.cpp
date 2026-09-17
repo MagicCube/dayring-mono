@@ -1,7 +1,10 @@
+#include <FreeInkUIDisplayTarget.h>
+
 #include <algorithm>
 #include <array>
 #include <cassert>
 #include <iostream>
+#include <limits>
 #include <memory>
 
 #include "apps/common/PlaceholderApplication.h"
@@ -18,12 +21,14 @@
 #include "stubs/NullCanvas.h"
 
 namespace {
+
 std::array<uint8_t, 800 * 480 / 8> pixels{};
 apps::shell::ShellApplication* shellApplication = nullptr;
 
 platform::runtime::Shell& facade() {
     return platform::runtime::Shell::instance();
 }
+
 apps::common::PlaceholderApplication* calendar = nullptr;
 apps::common::PlaceholderApplication* testApplication = nullptr;
 bool tapPending = false;
@@ -66,12 +71,60 @@ void tick(bool pressed = false) {
     platform::hal::powerManager().update(!pressed && platform::hal::hasInputActivity());
     facade().update();
 }
+
 void tap(float x, float y) {
     tapPending = true;
     tapX = x;
     tapY = y;
     tick();
     tapPending = false;
+}
+
+template <typename Page>
+void checkViewDeterminism(const Page& page, const typename Page::Props& props) {
+    freeink::ui::DisplayTarget canvas(pixels.data(), 800, 480, 100, freeink::ui::Orientation::Portrait);
+    typename Page::RenderResult result;
+    const platform::ui::Rect bounds{0, 0, 480, 800};
+    page.render(canvas, bounds, props, result);
+    const auto expected = pixels;
+    assert(result.interactions.count() == 3);
+    result.interactions.setFocusedIndex(0);
+    result.interactions.setFlash(1, 0);
+    const auto hit = result.interactions.data()[0].rect;
+    (void)result.interactions.route({.touchPressed = true, .touchX = hit.x, .touchY = hit.y});
+    page.render(canvas, bounds, props, result);
+    assert(pixels == expected);
+    // The generic View interface must execute the same concrete drawing code.
+    const platform::ui::View<typename Page::Props>& view = page;
+    view.render(canvas, bounds, props);
+    assert(pixels == expected);
+}
+
+void testViewDeterminism() {
+    checkViewDeterminism(apps::shell::pages::HomePage{}, {});
+    checkViewDeterminism(apps::common::LandingPage{}, {.title = "Test", .count = 42});
+}
+
+void testCounterBoundariesAndLayoutLifetime() {
+    using Type = platform::runtime::InputEvent::Type;
+    NullCanvas canvas;
+    for (const int value : {std::numeric_limits<int>::min(), std::numeric_limits<int>::max()}) {
+        apps::common::LandingPageController controller("Test", value);
+        const bool atMaximum = value == std::numeric_limits<int>::max();
+        const platform::runtime::InputEvent blocked{Type::TouchRelease, static_cast<int16_t>(atMaximum ? 350 : 100),
+                                                    600};
+        const platform::runtime::InputEvent allowed{Type::TouchRelease, static_cast<int16_t>(atMaximum ? 100 : 350),
+                                                    600};
+        controller.onEnter("/");
+        assert(!controller.onInput(allowed));
+        controller.render(canvas, {0, 0, 480, 800});
+        assert(!controller.onInput(blocked));
+        assert(controller.onInput(allowed));
+        assert(controller.onInput(blocked));
+        assert(!controller.onInput(blocked));
+        controller.onLeave();
+        assert(!controller.onInput(allowed));
+    }
 }
 
 void testTypographyLaunchAndPaging() {
@@ -158,8 +211,9 @@ void testHomeLaunch() {
     assert(pixels == homePixels);
     assert(frontlightBrightness == 20);
 }
+
 void testMinuteRefresh() {
-    platform::ui::MinuteClock clock;
+    platform::runtime::MinuteClock clock;
     nowMs = 0;
     clockTime = {.hour = 23, .minute = 59, .second = 59};
     assert(clock.update());
@@ -179,7 +233,7 @@ void testMinuteRefresh() {
 }
 
 void testStatusRefresh() {
-    apps::shell::components::StatusBar status;
+    apps::shell::components::StatusBarController status;
     nowMs = 0;
     clockTime = {.hour = 12, .minute = 0, .second = 1};
     batteryReads = chargingReads = 0;
@@ -205,10 +259,11 @@ void testStatusRefresh() {
     assert(batteryReads == 2);
 }
 
-class LayoutPage final : public platform::ui::Page {
+class LayoutPageController final : public platform::ui::PageController {
    public:
     platform::ui::Rect bounds{};
     int inputs = 0;
+
     void render(platform::ui::Canvas&, const platform::ui::Rect& area) override {
         bounds = area;
     }
@@ -216,19 +271,24 @@ class LayoutPage final : public platform::ui::Page {
 
 class LayoutApplication final : public platform::runtime::Application {
    public:
-    LayoutPage page;
+    LayoutPageController page;
+
     bool onInput(const platform::runtime::InputEvent&) override {
         ++page.inputs;
         return true;
     }
+
     void onCreate() override {
         assert(router().registerPage("/", page));
     }
+
     void onEnter(const platform::runtime::Intent&) override {
         assert(navigation().replace("/"));
     }
+
     void onLeave() override {
     }
+
     void render(platform::ui::Canvas& canvas, const platform::ui::Rect& bounds) override {
         page.render(canvas, bounds);
     }
@@ -241,7 +301,7 @@ void testApplicationContainer() {
         []() -> std::unique_ptr<platform::runtime::Application> { return std::make_unique<LayoutApplication>(); },
         platform::runtime::Residency::Transient));
     assert(manager.open("app://layout/"));
-    auto& page = static_cast<LayoutPage&>(*manager.currentPage());
+    auto& page = static_cast<LayoutPageController&>(*manager.currentPageController());
     platform::ui::ApplicationContainer container(manager);
     NullCanvas canvas;
     container.update();
@@ -272,7 +332,7 @@ void testApplicationContainer() {
     assert(!container.needsRender());
     container.hideStatusBar();
     assert(!container.needsRender());
-    apps::shell::pages::LockScreen lock;
+    apps::shell::pages::LockPageController lock;
     assert(lock.isFullscreen());
 }
 
@@ -284,7 +344,7 @@ void testBottomGestureCapture() {
         []() -> std::unique_ptr<platform::runtime::Application> { return std::make_unique<LayoutApplication>(); },
         platform::runtime::Residency::Transient));
     assert(manager.open("app://layout/"));
-    auto& page = static_cast<LayoutPage&>(*manager.currentPage());
+    auto& page = static_cast<LayoutPageController&>(*manager.currentPageController());
     int homes = 0;
     platform::ui::ApplicationContainer container(manager, [&] { ++homes; });
     NullCanvas canvas;
@@ -317,7 +377,7 @@ void testSwipeHomeIntegration() {
     assert(shell.open("app://calendar/"));
     displayBusy = false;
     tick();
-    const auto* original = manager.currentPage();
+    const auto* original = manager.currentPageController();
     // Native horizontal motion becomes an upward swipe in the portrait UI.
     swipePoints = {0.98f, 0.5f, 0.8f, 0.5f};
     swipePending = true;
@@ -326,29 +386,29 @@ void testSwipeHomeIntegration() {
     tapY = 0.5f;
     tick();
     swipePending = tapPending = false;
-    assert(shell.isHome() && manager.currentPage() != original);
+    assert(shell.isHome() && manager.currentPageController() != original);
     displayBusy = false;
     tick();
-    const auto* home = manager.currentPage();
+    const auto* home = manager.currentPageController();
     const int refreshes = refreshCount;
     displayBusy = false;
     swipePending = true;
     tick();
     swipePending = false;
-    assert(manager.currentPage() == home && !manager.needsRender() && refreshCount == refreshes);
+    assert(manager.currentPageController() == home && !manager.needsRender() && refreshCount == refreshes);
     assert(shell.open("app://calendar/"));
     displayBusy = false;
     tick();
-    original = manager.currentPage();
+    original = manager.currentPageController();
     assert(shell.lock());
     displayBusy = false;
     tick();
-    const auto* lock = manager.currentPage();
+    const auto* lock = manager.currentPageController();
     swipePending = true;
     tick();
     swipePending = false;
-    assert(shell.isLocked() && !shell.isHome() && manager.currentPage() == lock);
-    assert(shell.unlock() && manager.currentPage() == original);
+    assert(shell.isLocked() && !shell.isHome() && manager.currentPageController() == lock);
+    assert(shell.unlock() && manager.currentPageController() == original);
     assert(shell.goHome());
 }
 
@@ -359,6 +419,7 @@ unsigned long millis() {
 }
 
 namespace platform::hal {
+
 void testFrontlightBrightness(uint8_t percent) {
     frontlightBrightness = percent;
 }
@@ -413,6 +474,7 @@ bool readCharging(bool& charging) {
 Rtc::DateTime clockTime() {
     return ::clockTime;
 }
+
 }  // namespace platform::hal
 
 int main() {
@@ -534,6 +596,8 @@ int main() {
     testApplicationContainer();
     testBottomGestureCapture();
     testSwipeHomeIntegration();
+    testViewDeterminism();
+    testCounterBoundariesAndLayoutLifetime();
     testTypographyLaunchAndPaging();
     std::cout << "Shell power-button, app-launching, and rendering tests passed\n";
 }

@@ -1,10 +1,11 @@
 #pragma once
 
 #include "../../platform/runtime/Application.h"
-#include "pages/HomeScreen.h"
-#include "pages/LockScreen.h"
+#include "pages/HomePageController.h"
+#include "pages/LockPageController.h"
 
 namespace apps::shell {
+
 class ShellApplication final : public platform::runtime::Application {
    public:
     void onCreate() override;
@@ -16,7 +17,8 @@ class ShellApplication final : public platform::runtime::Application {
     bool onInput(const platform::runtime::InputEvent& event) override;
 
    private:
-    pages::LockScreen _lock;
-    pages::HomeScreen _home;
+    pages::LockPageController _lock;
+    pages::HomePageController _home;
 };
+
 }  // namespace apps::shell

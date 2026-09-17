@@ -10,11 +10,13 @@
 #include "platform/runtime/AppURL.h"
 #include "platform/runtime/ApplicationManager.h"
 #include "platform/ui/Page.h"
+#include "platform/ui/PageController.h"
 #include "stubs/NullCanvas.h"
 
 // ApplicationManager lifecycle tests do not require a hardware-backed render target.
 
 namespace {
+
 using platform::runtime::Application;
 using platform::runtime::ApplicationManager;
 using platform::runtime::AppURL;
@@ -23,6 +25,11 @@ using platform::runtime::Intent;
 using platform::runtime::Residency;
 std::vector<std::string> events;
 int resources = 0;
+int controllers = 0;
+int views = 0;
+int states = 0;
+int controllersCreated = 0;
+int controllersDestroyed = 0;
 Intent lastIntent;
 std::vector<std::string> expectedShutdownEvents;
 
@@ -34,24 +41,68 @@ struct Resource {
     Resource() {
         ++resources;
     }
+
     ~Resource() {
         --resources;
     }
 };
 
-class RootPage final : public platform::ui::Page {
+struct TestProps {};
+
+class OwnedPage final : public platform::ui::Page<TestProps> {
    public:
-    void render(platform::ui::Canvas&, const platform::ui::Rect&) override {
+    OwnedPage() {
+        ++views;
     }
+
+    ~OwnedPage() override {
+        --views;
+    }
+
+    void render(platform::ui::Canvas&, const platform::ui::Rect&, const Props&) const override {
+    }
+};
+
+struct OwnedState {
+    OwnedState() {
+        ++states;
+    }
+
+    ~OwnedState() {
+        --states;
+    }
+};
+
+class RootPageController final : public platform::ui::PageController {
+   public:
+    RootPageController() {
+        ++controllers;
+        ++controllersCreated;
+    }
+
+    ~RootPageController() override {
+        --controllers;
+        ++controllersDestroyed;
+    }
+
+    void render(platform::ui::Canvas& canvas, const platform::ui::Rect& bounds) override {
+        _view.render(canvas, bounds, {});
+    }
+
+   private:
+    OwnedPage _view;
+    std::unique_ptr<OwnedState> _state = std::make_unique<OwnedState>();
 };
 
 class TestApplication final : public Application {
    public:
     explicit TestApplication(const char* name) : _name(name) {
     }
+
     ~TestApplication() override {
         _record("destroy");
     }
+
     void onCreate() override {
         assert(owner());
         assert(!_root.owner());
@@ -59,19 +110,25 @@ class TestApplication final : public Application {
         assert(_root.owner() == this);
         _record("create");
     }
+
     void onEnter(const Intent& intent) override {
         lastIntent = intent;
         _record("enter");
+        assert(navigation().replace("/"));
     }
+
     void onLeave() override {
         _record("leave");
     }
+
     void update() override {
         _record("update");
     }
+
     void render(platform::ui::Canvas&, const platform::ui::Rect&) override {
         _record("render");
     }
+
     bool onInput(const InputEvent&) override {
         requestRender();
         _record("input");
@@ -82,7 +139,8 @@ class TestApplication final : public Application {
     void _record(const char* event) {
         events.push_back(_name + ":" + event);
     }
-    RootPage _root;
+
+    RootPageController _root;
     std::string _name;
     std::unique_ptr<Resource> _resource = std::make_unique<Resource>();
 };
@@ -105,6 +163,7 @@ std::unique_ptr<Application> unavailable() {
 
 void expect(std::vector<std::string> expected) {
     assert(events == expected);
+    assert(controllers == resources && views == resources && states == resources);
     events.clear();
 }
 
@@ -265,12 +324,16 @@ void testDispatchAndFailedOpen(ApplicationManager& manager) {
     assert(manager.needsRender());
     expect({"shell:enter"});
 }
+
 void verifyShutdown() {
     assert(resources == 0);
+    assert(controllers == 0 && views == 0 && states == 0);
+    assert(controllersCreated == controllersDestroyed);
     if (expectedShutdownEvents.size() > 1 && expectedShutdownEvents.back() == "test:destroy")
         std::sort(events.begin(), events.end());
     assert(events == expectedShutdownEvents);
 }
+
 }  // namespace
 
 int main(int argc, char** argv) {

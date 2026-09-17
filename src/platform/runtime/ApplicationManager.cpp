@@ -3,11 +3,12 @@
 #include <algorithm>
 #include <utility>
 
-#include "../ui/Page.h"
+#include "../ui/PageController.h"
 #include "AppURL.h"
 #include "TransitionGuard.h"
 
 namespace platform::runtime {
+
 ApplicationManager::ApplicationManager(std::size_t transientLimit)
     : _transientLimit(std::max<std::size_t>(1, transientLimit)) {
 }
@@ -41,8 +42,8 @@ bool ApplicationManager::open(std::string_view url, OpenMode mode) {
     TransitionGuard guard(_transitioning);
     const auto location = parsed->location;
     if (!_enter(id, Intent{std::move(*parsed)})) return false;
-    return mode != OpenMode::Exact ||
-           (_active()->navigation().currentLocation() == location && _active()->navigation().currentPage() != nullptr);
+    return mode != OpenMode::Exact || (_active()->navigation().currentLocation() == location &&
+                                       _active()->navigation().currentPageController() != nullptr);
 }
 
 std::optional<std::vector<RouteDescription>> ApplicationManager::describeRoutes() {
@@ -76,7 +77,7 @@ RouteError ApplicationManager::checkRoute(std::string_view url) {
 
 std::string ApplicationManager::currentURL() const {
     const auto* active = _active();
-    if (!active || !active->navigation().currentPage()) return {};
+    if (!active || !active->navigation().currentPageController()) return {};
     return "app://" + _entries[_activeId].name + std::string(active->navigation().currentLocation());
 }
 
@@ -189,9 +190,9 @@ bool ApplicationManager::allowsIdleLock() const {
     return application && application->allowsIdleLock();
 }
 
-ui::Page* ApplicationManager::currentPage() const {
+ui::PageController* ApplicationManager::currentPageController() const {
     const auto* application = _active();
-    return application ? application->navigation().currentPage() : nullptr;
+    return application ? application->navigation().currentPageController() : nullptr;
 }
 
 bool ApplicationManager::render(ui::Canvas& canvas, const ui::Rect& bounds, bool force) {
@@ -201,4 +202,5 @@ bool ApplicationManager::render(ui::Canvas& canvas, const ui::Rect& bounds, bool
     application->render(canvas, bounds);
     return true;
 }
+
 }  // namespace platform::runtime
