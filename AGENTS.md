@@ -15,6 +15,15 @@ Read [UI architecture and design principles](docs/ui.md) before UI work. Views o
 
 Read [PaperMono hardware constraints](docs/platform/hardware.md) before display, touch, or power work. The panel supports **2-bit grayscale (four levels)**; do not infer panel capability from the current framebuffer format.
 
+## Display Hardware Contract
+
+- **The device has a 480 × 800 portrait e-ink display with 2-bit grayscale (four levels: black, dark gray, light gray, and white).** Use this geometry and color capability when designing pages, boot screens, images, and previews.
+- The driver's native 800 × 480 buffer layout is an implementation detail; it does not change the product's 480 × 800 portrait UI orientation.
+- A 1-bit framebuffer or B/W upload path is a software implementation choice, not a hardware limitation. Never describe this panel as supporting only black and white.
+- When a design calls for gray, inspect and use the SDK grayscale upload contract. Do not silently replace gray with white or B/W dithering because an existing rendering path uses a 1-bit buffer.
+
+## Code Maps
+
 Use these code maps to locate implementation; load only the relevant map, then read the listed symbols. Paths are repository-relative. Update maps when responsibilities or entry points move; `plans/` may be outdated.
 
 | Search topic | Code map |
