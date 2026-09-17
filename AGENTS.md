@@ -9,6 +9,8 @@ These guidelines apply to development and code reviews throughout this repositor
 
 ## Architecture Context
 
+Read [Font principles and usage](docs/platform/fonts.md) before choosing fonts or changing typography, font assets, or slots.
+
 Read [PaperMono hardware constraints](docs/platform/hardware.md) before display, touch, or power work. The panel supports **2-bit grayscale (four levels)**; do not infer panel capability from the current framebuffer format.
 
 Use these code maps to locate implementation; load only the relevant map, then read the listed symbols. Paths are repository-relative. Update maps when responsibilities or entry points move; `plans/` may be outdated.
