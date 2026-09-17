@@ -6,6 +6,7 @@ Run the real firmware application/page rendering on macOS and capture a PNG for 
 
 ```sh
 make preview "app://shell/"
+./tools/preview/preview capture 'app://shell/' --battery 85
 ./tools/preview/preview capture 'app://shell/lock' --time 09:15
 make preview "app://typography/?article=display"
 ```
@@ -39,11 +40,11 @@ Use `--output path.png` to override the filename. Explicit relative output paths
 
 Top-level help introduces commands. Command help describes options. Application help discovers routes and parameter documentation from C++ registrations. `routes` initializes registered applications without entering their pages; application constructors and `onCreate` must support host initialization. Add route documentation alongside `router().registerPage(...)`, not in the CLI.
 
-Capture defaults are a complete 480 × 800 frame, time `12:34`, battery `75%`, and charging off. Override with `--time HH:MM`, `--battery 0..100`, and `--charging`. Fullscreen pages naturally hide the status bar. Quote URLs so shell metacharacters such as `&` and `#` remain part of the URL.
+Capture defaults are a complete 480 × 800 frame, the current local time, battery `75%`, and charging off. The CLI samples the host clock once immediately before rendering, after any build. Use `--battery 85` for 85%, and `--time HH:MM` for repeatable screenshots; `--battery-charging` enables the charging indicator. JSON results record the exact sampled time. Named isolated View examples keep their explicit Props. Fullscreen pages naturally hide the status bar. Quote URLs so shell metacharacters such as `&` and `#` remain part of the URL.
 
 `app://home` uses the production Home alias. `app://shell/lock` uses the production lock presentation. Unknown applications and paths fail rather than falling back to an unrelated screenshot. The host opens Home before the target to establish the lifecycle required by lock presentation.
 
-Typography accepts `article=reading` (default) or `article=display`; invalid values fail on both host and firmware. Query keys and values are percent-decoded bytes, `+` remains a literal plus, and the first repeated key wins. Unknown keys are ignored by current pages. Malformed percent escapes and decoded NULs fail. Page paths remain exact and case-sensitive, without percent-decoding; query and fragment text is preserved for `Page::onEnter`.
+Typography accepts `article=reading` (default) or `article=display`; invalid values fail on both host and firmware. Query keys and values are percent-decoded bytes, `+` remains a literal plus, and the first repeated key wins. Unknown keys are ignored by current pages. Malformed percent escapes and decoded NULs fail. Page paths remain exact and case-sensitive, without percent-decoding; query and fragment text is preserved for `PageController::onEnter`.
 
 ## Machine-readable results
 
@@ -75,4 +76,21 @@ make test
 
 Tests cover query handling, shared route discovery, exact navigation, framebuffer orientation, all current routes, both Typography articles, Home/lock behavior, state overrides, PNG pixel parity, deterministic output, JSON/errors, dependency-content cache invalidation, failed builds, cold concurrent builds, and concurrent captures.
 
-After changing UI code, run `make preview "app://application/path"` and visually inspect the resulting PNG. Show the screenshot to the user with Markdown image syntax and its absolute path; do not stop at a tool-only inspection or a file link. Pixel tests do not establish that a layout is readable or attractive. Fonts and rendering match the current firmware's 1-bit framebuffer and dithering; the physical panel supports four gray levels, but this tool does not change that firmware contract. It does not simulate ghosting, refresh waveforms, touch interaction, or asynchronous application loading. Future pages requiring services must receive appropriate host adapters; do not replace their render methods with preview-only UI.
+After changing UI code, run `make preview "app://application/path"` and visually inspect the resulting PNG. Show the screenshot to the user with Markdown image syntax and its absolute path; do not stop at a tool-only inspection or a file link. Pixel tests do not establish that a layout is readable or attractive. Fonts and layout match firmware. Preview output preserves four tones (0, 85, 170, 255) in a gray8 mirror of the native drawing target. Firmware still uses its existing 1-bit upload path; the preview does not enable hardware grayscale refresh. It does not simulate ghosting, refresh waveforms, touch interaction, or asynchronous application loading. Future pages requiring services must receive appropriate host adapters; do not replace their render methods with preview-only UI.
+
+## Isolated View previews
+
+```sh
+./tools/preview/preview views
+./tools/preview/preview view-help TypographyPage
+./tools/preview/preview capture-view TypographyPage --example display
+./tools/preview/preview capture-view StatusBar --example charging --json
+```
+
+These commands build a separate runner containing only Views, FreeInk, fonts, typed C++ examples, and shared framebuffer/export utilities. No Application, controller, Router, HAL, Arduino stub, or device initialization is linked. Route commands still exercise real controllers and host adapters. Both paths call the same production View rendering code.
+
+Examples are defined in `native/ViewMain.cpp` with explicit Props and bounds. `views` lists every example; `view-help` filters by exact View name. `capture-view` requires `--example`; unknown Views or examples return exit 3 and preserve existing output. No JSON-to-Props reflection is used. Add typed examples when adding a View or a visual state.
+
+All exports use the same 480 x 800 portrait frame. Page examples use the complete frame with no implicit status bar; StatusBar examples draw in the top 36 pixels and leave the rest white. Default filenames are `.preview/view-<name>--<example>.png`; `--output`, `--json`, and `--rebuild` behave like route capture. JSON discovery exposes `examples` with `view`, `name`, and `bounds`; capture results expose `view`, `example`, output geometry, and cache status.
+
+Both targets use independent build identities and retain per-translation-unit caching. Measure warm end-to-end capture separately from cold compilation; the development target is below one second for an unchanged capture. See [UI architecture](../../docs/ui.md) for ownership, rendering, and portability rules.

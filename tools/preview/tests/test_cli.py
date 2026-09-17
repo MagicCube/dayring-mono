@@ -2,6 +2,7 @@
 """End-to-end preview contracts; PNG decoding deliberately independent of its writer."""
 
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 import json
 import os
 from pathlib import Path
@@ -64,7 +65,22 @@ class PreviewTest(unittest.TestCase):
         cls.temporary.cleanup()
 
     def capture(self, url, *arguments):
+        if "--time" not in arguments:
+            arguments = (*arguments, "--time", "12:34")
         return json.loads(invoke("capture", url, *arguments, "--json").stdout)
+
+    def test_current_local_time_and_battery(self):
+        before = datetime.now().strftime("%H:%M")
+        result = json.loads(invoke("capture", "app://shell/", "--battery", "85", "--battery-charging", "--json").stdout)
+        after = datetime.now().strftime("%H:%M")
+        self.assertIn(result["state"]["time"], {before, after})
+        self.assertEqual(result["state"]["battery"], 85)
+        self.assertTrue(result["state"]["charging"])
+        actual = decode(result["output"])[2]
+        explicit = self.capture("app://shell/", "--time", result["state"]["time"], "--battery", "85", "--battery-charging")
+        self.assertEqual(actual, decode(explicit["output"])[2])
+        fixed = self.capture("app://shell/lock", "--time", "09:15")
+        self.assertEqual(fixed["state"]["time"], "09:15")
 
     def test_help_and_shared_discovery(self):
         self.assertIn("capture", invoke("--help").stdout)
@@ -101,7 +117,7 @@ class PreviewTest(unittest.TestCase):
 
     def test_status_clock_and_lock(self):
         base = decode(self.capture("app://shell/")["output"])[2]
-        for flag in (("--time", "09:15"), ("--battery", "10"), ("--charging",)):
+        for flag in (("--time", "09:15"), ("--battery", "10"), ("--battery-charging",)):
             pixels = decode(self.capture("app://shell/", *flag)["output"])[2]
             self.assertNotEqual(base[:480 * 36], pixels[:480 * 36])
             self.assertEqual(base[480 * 36:], pixels[480 * 36:])
@@ -165,6 +181,52 @@ class PreviewTest(unittest.TestCase):
         self.assertEqual(build.WORK, ROOT / ".cache/preview")
         self.assertTrue(self.executable.is_relative_to(build.WORK))
 
+    def test_isolated_views(self):
+        listing = json.loads(invoke("views", "--json").stdout)
+        self.assertEqual({e["view"] for e in listing["examples"]},
+                         {"HomePage", "LockPage", "TypographyPage", "LandingPage", "StatusBar"})
+        self.assertIn("reading", invoke("view-help", "TypographyPage").stdout)
+        frames = {}
+        for example in listing["examples"]:
+            args = ("capture-view", example["view"], "--example", example["name"], "--json")
+            result = json.loads(invoke(*args).stdout)
+            first = decode(result["output"])
+            repeated = json.loads(invoke(*args).stdout)
+            self.assertTrue(repeated["cache_hit"])
+            self.assertEqual(first, decode(repeated["output"]))
+            self.assertEqual(Path(result["output"]).name,
+                             f'view-{example["view"]}--{example["name"]}.png')
+            frames[example["view"], example["name"]] = first[2]
+        self.assertNotEqual(frames["TypographyPage", "reading"], frames["TypographyPage", "display"])
+        self.assertNotEqual(frames["LandingPage", "maximum"], frames["LandingPage", "minimum"])
+        self.assertNotEqual(frames["StatusBar", "default"], frames["StatusBar", "charging"])
+        self.assertEqual(set(frames["StatusBar", "default"][480 * 36:]), {255})
+        self.assertEqual(frames["LockPage", "default"], decode(self.capture("app://shell/lock")["output"])[2])
+        output = self.directory / "view-error.png"
+        output.write_bytes(b"keep")
+        for view, example, code in (("missing", "default", "unknown_view"),
+                                    ("HomePage", "missing", "unknown_example")):
+            failure = json.loads(invoke("capture-view", view, "--example", example,
+                                        "--output", str(output), "--json", status=3).stdout)
+            self.assertEqual(failure["error"]["code"], code)
+            self.assertEqual(output.read_bytes(), b"keep")
+        invoke("capture-view", "HomePage", "--json", status=2)
+        invoke("view-help", "missing", "--json", status=3)
+        view_executable, _ = build.build(target="view")
+        self.assertNotEqual(view_executable, self.executable)
+        _, flags, _ = build.configuration("view")
+        self.assertFalse(any("native/include" in flag or "hardware/Rtc" in flag for flag in flags))
+        self.assertFalse(any("Controller" in str(p) or "/runtime/" in str(p) or "/hal/" in str(p)
+                             for p in build.source_files("view")))
+        # Inspect actual compiler dependencies, not only the source allowlist.
+        _, _, identity = build.configuration("view")
+        for source in build.source_files("view"):
+            unit = build.cache.digest([identity, str(source)])
+            manifest = build.cache.read_manifest(build.WORK / "build/units" / f"{unit}.json")
+            dependencies = manifest["dependencies"]
+            self.assertFalse(any("Controller" in p or "/platform/hal/" in p or p.endswith("/Arduino.h")
+                                 for p in dependencies))
+
     def test_protocol_failure(self):
         script = self.directory / "bad-renderer"
         script.write_text("#!/bin/sh\nprintf 'invalid\\n'\n")
@@ -187,6 +249,8 @@ class BuildCacheTest(unittest.TestCase):
             (root / "src/platform/hal/PowerManager.cpp").write_text("")
             (ui / "src/FreeInkUI.cpp").write_text("")
             (native / "Main.cpp").write_text('#include "value.h"\nint main() { return VALUE; }\n')
+            (native / "HostHardware.cpp").write_text("")
+            (native / "FrameBuffer.cpp").write_text("")
             dependency = native / "value.h"
             dependency.write_text("#define VALUE 0\n")
             (root / "platformio.ini").write_text('[env:papermono]\nbuild_flags = \'-DDAYRING_HOME_URL="app://test/"\'\n')

@@ -35,15 +35,29 @@ def checked(command: list[str]) -> subprocess.CompletedProcess:
     return result
 
 
-def source_files() -> list[Path]:
+VIEW_SOURCES = [
+    ROOT / "src/apps/shell/views/BatteryIndicatorView.cpp",
+    ROOT / "src/apps/shell/pages/HomePage.cpp",
+    ROOT / "src/apps/shell/pages/LockPage.cpp",
+    ROOT / "src/apps/shell/components/StatusBar.cpp",
+    ROOT / "src/apps/typography/TypographyPage.cpp",
+    ROOT / "src/apps/common/LandingPage.cpp",
+]
+
+
+def source_files(target: str = "route") -> list[Path]:
+    shared = [ROOT / "src/platform/fonts/Fonts.cpp", UI / "src/FreeInkUI.cpp",
+              NATIVE / "FrameBuffer.cpp"]
+    if target == "view":
+        return sorted([*VIEW_SOURCES, *shared, NATIVE / "ViewMain.cpp"])
+    if target != "route":
+        raise ValueError(f"Unknown preview target: {target}")
     return sorted([
         *ROOT.glob("src/apps/**/*.cpp"),
         *ROOT.glob("src/platform/runtime/*.cpp"),
         *ROOT.glob("src/platform/ui/*.cpp"),
-        ROOT / "src/platform/fonts/Fonts.cpp",
         ROOT / "src/platform/hal/PowerManager.cpp",
-        UI / "src/FreeInkUI.cpp",
-        *NATIVE.glob("*.cpp"),
+        NATIVE / "Main.cpp", NATIVE / "HostHardware.cpp", *shared,
     ])
 
 
@@ -57,7 +71,7 @@ def home_flags() -> list[str]:
     return [flag for flag in flags if flag.startswith("-DDAYRING_HOME_URL=")]
 
 
-def configuration() -> tuple[str, list[str], str]:
+def configuration(target: str = "route") -> tuple[str, list[str], str]:
     name = os.environ.get("HOST_CXX", "clang++")
     compiler = shutil.which(name)
     if compiler is None:
@@ -65,20 +79,24 @@ def configuration() -> tuple[str, list[str], str]:
                            "Install Xcode Command Line Tools, or set HOST_CXX to a host C++20 compiler.")
     version = checked([compiler, "--version"]).stdout.decode(errors="replace")
     includes = [NATIVE / "include", ROOT / "src", UI / "include", RTC]
+    if target == "view":
+        includes = [ROOT / "src", UI / "include"]
     flags = ["-std=c++20", "-O2", "-Wall", "-Wextra", "-Werror", "-fno-exceptions",
-             "-I" + str(includes[0]), "-I" + str(includes[1]),
-             "-isystem", str(includes[2]), "-isystem", str(includes[3]), *home_flags()]
+             *["-I" + str(path) for path in includes],
+             *(home_flags() if target == "route" else [])]
     environment = {key: os.environ.get(key, "") for key in
                    ("SDKROOT", "DEVELOPER_DIR", "MACOSX_DEPLOYMENT_TARGET", "CPATH", "CPLUS_INCLUDE_PATH")}
     # A newly added header can shadow a prior include without changing its contents.
     # Inventory names as well as hashing known dependencies before each reuse.
     roots = [ROOT / "src", NATIVE, UI / "include", RTC]
+    if target == "view":
+        roots = [ROOT / "src", UI / "include"]
     for variable in ("CPATH", "CPLUS_INCLUDE_PATH"):
         roots.extend(Path(part) for part in os.environ.get(variable, "").split(os.pathsep) if part)
     inventory = sorted(str(path) for root in roots for path in root.rglob("*")
                        if path.suffix in (".h", ".hpp", ".inc") and path.is_file())
     implementation = [cache.file_hash(Path(__file__)), cache.file_hash(Path(cache.__file__))]
-    identity = cache.digest([compiler, version, flags, environment, inventory, implementation])
+    identity = cache.digest([target, compiler, version, flags, environment, inventory, implementation])
     return compiler, flags, identity
 
 
@@ -107,11 +125,11 @@ def compile_unit(source: Path, compiler: str, flags: list[str], identity: str) -
     return object_path
 
 
-def build(*, rebuild: bool = False) -> tuple[Path, bool]:
-    compiler, flags, identity = configuration()
+def build(*, rebuild: bool = False, target: str = "route") -> tuple[Path, bool]:
+    compiler, flags, identity = configuration(target)
     for directory in ("tmp", "build/objects", "build/bin"):
         (WORK / directory).mkdir(parents=True, exist_ok=True)
-    sources = source_files()
+    sources = source_files(target)
     hashes = cache.FileHashes()
     # Check cached dependencies once on the caller thread. Parallelize only real
     # compilation; warm captures should not pay thread-pool/lock contention costs.

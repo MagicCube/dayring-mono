@@ -7,39 +7,47 @@
 #include "../native/HostHardware.h"
 #include "platform/hal/Hardware.h"
 #include "platform/runtime/ApplicationManager.h"
-#include "platform/ui/Page.h"
+#include "platform/ui/PageController.h"
 
 namespace {
+
 int entries = 0;
-class SamplePage final : public platform::ui::Page {
+
+class SamplePageController final : public platform::ui::PageController {
    public:
     bool acceptsLocation(std::string_view location) const override {
         const auto query = platform::runtime::LocationQuery::parse(location);
         return query && query->value("reject") != "yes";
     }
+
     void onEnter(std::string_view) override {
         ++entries;
     }
+
     void render(platform::ui::Canvas&, const platform::ui::Rect&) override {
     }
 };
+
 class SampleApplication final : public platform::runtime::Application {
    public:
     void onCreate() override {
         assert(router().registerPage("/", _page, "Sample help"));
         assert(router().registerPage("/detail", _detail));
     }
+
     void onEnter(const platform::runtime::Intent& intent) override {
         if (!navigation().replace(intent.url.location.c_str())) (void)navigation().replace("/");
     }
+
     void onLeave() override {
     }
+
     void render(platform::ui::Canvas&, const platform::ui::Rect&) override {
     }
 
    private:
-    SamplePage _page;
-    SamplePage _detail;
+    SamplePageController _page;
+    SamplePageController _detail;
 };
 
 void testQuery() {
@@ -69,7 +77,7 @@ void testRoutes() {
     const auto descriptions = manager.describeRoutes();
     assert(descriptions && descriptions->size() == 2);
     assert(descriptions->front().page.help == "Sample help");
-    assert(entries == 0 && !manager.currentPage());
+    assert(entries == 0 && !manager.currentPageController());
     assert(manager.checkRoute("bad") == RouteError::InvalidURL);
     assert(manager.checkRoute("app://missing/") == RouteError::UnknownApplication);
     assert(manager.checkRoute("app://sample/missing") == RouteError::UnknownPage);
@@ -90,14 +98,18 @@ void testOrientation() {
     const auto frame = platform::hal::framebuffer();
     freeink::ui::DisplayTarget target(frame.pixels.data(), frame.width, frame.height, frame.strideBytes,
                                       freeink::ui::Orientation::Portrait);
+    target.setGrayPreview(frame.grayPreview.data());
+    target.fill({20, 120, 1, 1}, freeink::ui::Paint::solid(freeink::ui::Color::LightGray));
     assert(target.logicalWidth() == 480 && target.logicalHeight() == 800);
     target.fill({0, 0, 1, 1}, freeink::ui::Paint::solid(freeink::ui::Color::Black));
     target.fill({479, 799, 1, 1}, freeink::ui::Paint::solid(freeink::ui::Color::Black));
     target.fill({17, 123, 1, 1}, freeink::ui::Paint::solid(freeink::ui::Color::Black));
     const auto pixels = preview::portraitPixels();
     assert(pixels[0] == 0 && pixels.back() == 0 && pixels[123 * 480 + 17] == 0);
+    assert(pixels[120 * 480 + 20] == 170);
     assert(pixels[1] == 255 && pixels[479] == 255 && pixels[799 * 480] == 255);
 }
+
 }  // namespace
 
 int main() {

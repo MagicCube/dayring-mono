@@ -3,11 +3,13 @@
 #include <string>
 #include <string_view>
 
+#include "FrameBuffer.h"
 #include "HostHardware.h"
 #include "apps/RegisterApplications.h"
 #include "platform/runtime/Shell.h"
 
 namespace {
+
 using platform::runtime::OpenMode;
 using platform::runtime::RouteError;
 using platform::runtime::Shell;
@@ -100,12 +102,9 @@ int capture(Shell& shell, char** argv) {
         return fail(5, "route_mismatch", "The application redirected away from the requested page.");
     shell.update();
     if (!preview::hasFrame()) return fail(5, "missing_frame", "The render cycle submitted no frame.");
-    const auto pixels = preview::portraitPixels();
-    std::cout << "{\"protocol\":1,\"width\":480,\"height\":800,\"format\":\"gray8\",\"resolved_url\":"
-              << jsonString(resolved) << "}\n";
-    std::cout.write(reinterpret_cast<const char*>(pixels.data()), static_cast<std::streamsize>(pixels.size()));
-    return std::cout ? 0 : 5;
+    return preview::writeFrame((",\"resolved_url\":" + jsonString(resolved)).c_str());
 }
+
 }  // namespace
 
 int main(int argc, char** argv) {

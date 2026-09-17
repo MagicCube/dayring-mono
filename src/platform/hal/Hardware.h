@@ -6,10 +6,12 @@
 class InputManager;
 
 namespace platform::hal {
+
 class PowerManager;
 [[nodiscard]] PowerManager& powerManager();
 // Touch activity and ordinary button edges/holds from the latest input sample.
 [[nodiscard]] bool hasInputActivity();
+
 // Non-owning view of the HAL-owned monochrome buffer. Valid after begin();
 // render only while displayReady() is true. Each row contains strideBytes bytes.
 struct Framebuffer {
@@ -17,6 +19,8 @@ struct Framebuffer {
     uint16_t width;
     uint16_t height;
     uint16_t strideBytes;
+    // Optional native gray8 output for host previews; empty on hardware.
+    std::span<uint8_t> grayPreview{};
 };
 
 void begin();
@@ -34,4 +38,5 @@ void refreshDisplay();
 [[nodiscard]] bool readBatteryPercent(uint8_t& percent);
 [[nodiscard]] bool readCharging(bool& charging);
 [[noreturn]] void fatal();
+
 }  // namespace platform::hal

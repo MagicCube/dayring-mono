@@ -8,12 +8,16 @@
 
 namespace platform::runtime {
 namespace {
+
 freeink::ui::DisplayTarget displayTarget() {
     const auto framebuffer = hal::framebuffer();
-    return {framebuffer.pixels.data(), static_cast<int16_t>(framebuffer.width),
-            static_cast<int16_t>(framebuffer.height), static_cast<int16_t>(framebuffer.strideBytes),
-            freeink::ui::Orientation::Portrait};
+    freeink::ui::DisplayTarget target{
+        framebuffer.pixels.data(), static_cast<int16_t>(framebuffer.width), static_cast<int16_t>(framebuffer.height),
+        static_cast<int16_t>(framebuffer.strideBytes), freeink::ui::Orientation::Portrait};
+    target.setGrayPreview(framebuffer.grayPreview.data());
+    return target;
 }
+
 }  // namespace
 
 freeink::ui::DeviceContext displayDevice() {
@@ -27,4 +31,5 @@ void renderFrame(ui::ApplicationContainer& container) {
     container.render(target, {0, 0, target.logicalWidth(), target.logicalHeight()});
     hal::refreshDisplay();
 }
+
 }  // namespace platform::runtime

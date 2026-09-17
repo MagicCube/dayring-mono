@@ -13,8 +13,9 @@ def digest(value) -> str:
     return hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
 
 
-def file_hash(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+def file_hash(path: Path | str) -> str:
+    with open(path, "rb") as stream:
+        return hashlib.sha256(stream.read()).hexdigest()
 
 
 class FileHashes:
@@ -23,10 +24,13 @@ class FileHashes:
     def __init__(self):
         self._values = {}
 
-    def __call__(self, path: Path) -> str:
-        if path not in self._values:
-            self._values[path] = file_hash(path)
-        return self._values[path]
+    def __call__(self, path: Path | str) -> str:
+        # Manifests share thousands of dependency names. Cache strings directly
+        # instead of constructing and hashing a Path for every repeated lookup.
+        name = str(path)
+        if name not in self._values:
+            self._values[name] = file_hash(name)
+        return self._values[name]
 
 
 def read_manifest(path: Path) -> dict:
@@ -55,7 +59,7 @@ def dependencies_match(manifest: dict, hash_file=file_hash) -> bool:
     if not isinstance(dependencies, dict) or not dependencies:
         return False
     try:
-        return all(hash_file(Path(name)) == expected for name, expected in dependencies.items())
+        return all(hash_file(name) == expected for name, expected in dependencies.items())
     except OSError:
         return False
 
