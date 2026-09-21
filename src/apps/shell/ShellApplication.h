@@ -5,6 +5,7 @@
 #include "pages/FirmwareUpdatePage.h"
 #include "pages/HomePageController.h"
 #include "pages/LockPageController.h"
+#include "pages/PairingPageController.h"
 
 namespace apps::shell {
 
@@ -21,6 +22,7 @@ class ShellApplication final : public platform::runtime::Application {
    private:
     pages::LockPageController _lock;
     pages::HomePageController _home;
+    pages::PairingPageController _pairing;
     platform::ui::StaticPageController<pages::FirmwareUpdatePage> _firmwareUpdate{true};
 };
 

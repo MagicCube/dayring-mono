@@ -37,6 +37,8 @@ class ProbeService final : public Service {
     bool start() override {
         assert(_manager.tasks().isRunning());
         assert(_manager.frontlight().isRunning() && _manager.power().isRunning() && _manager.time().isRunning());
+        assert(_manager.ble().isRunning());
+        assert(_manager.ble().state() == platform::ble::BLEService::State::Unavailable);
         assert(!_manager.begin());
         _events.push_back(_id);
         if (_fail) return false;
@@ -111,6 +113,8 @@ void failedStartup() {
     assert(!manager.begin());
     assert((events == std::vector<int>{1, 2, -1}));
     assert(!manager.tasks().isRunning() && manager.tasks().size() == 0);
+    assert(!manager.ble().isRunning());
+    assert(manager.ble().state() == platform::ble::BLEService::State::Stopped);
     manager.stop();
     failure = false;
     events.clear();

@@ -7,6 +7,7 @@
 | Ordered service startup and shutdown | `src/platform/runtime/services/ServiceManager.*`, `src/platform/runtime/Shell.cpp` | `startServices`, `services`, `begin`, `update`, `stop` |
 | Production facade and owned services | `src/platform/runtime/Shell.h` | `Shell` |
 | Home alias, global lock and update policy | `src/platform/runtime/Shell.cpp` | `open`, `goHome`, `isHome`, `_handleHomeGesture`, `lock`, `unlock`, `update`, `onInput` |
+| First-time setup gate | `src/platform/runtime/Shell.cpp`, `src/apps/shell/pages/PairingPageController.*` | `openStartupPage`, `update` |
 | Configured home destination | `platformio.ini` | `DAYRING_HOME_URL` |
 | Power lifecycle and lock/activity policy | `src/platform/hal/services/PowerService.cpp` | `start`, `update`, `notifyActivity`, `setLocked` |
 | Runtime frontlight control | `src/platform/hal/services/FrontlightService.cpp` | `start`, `brightness`, `setBrightness`, `turnOn`, `turnOff` |
@@ -37,3 +38,13 @@
 Preparation opens `app://shell/firmware-update` even from lock, then stops services in reverse startup order, cancels unfinished tasks, and rejects new submissions, and suppresses ordinary updates, navigation and input until reboot. Submit one frame without a separate clearing pass. READY requires composition and physical refresh completion, never a fixed delay. USB handshake: [HAL](hal.md).
 
 Checks: `make test-shell-facade test-home-entry test-power-service test-shell`.
+
+## First-time pairing
+
+Firmware calls `openStartupPage()` after service startup and application registration. A radio with no stored bonds opens `app://shell/pairing`; an existing bond goes to the configured Home even if the phone is offline. Native previews report radio Unavailable and retain ordinary Home behavior; the pairing route can be captured directly.
+
+While the startup gate is active, Shell rejects ordinary opens, Home gestures and manual locking; ShellApplication disables idle lock on the pairing page. Manual lock requests, lock URLs and power presses are also blocked whenever this page is active, including direct route entry outside the startup gate. Firmware-update preparation remains available. Service updates continue; once a stored bond appears, Shell goes Home outside controller callbacks and resets activity timing so a long setup session cannot immediately idle-lock Home. Connection or encryption without a bond does not finish setup.
+
+PairingPageController observes BLE state and owns the cached QR matrix. PairingPage renders only explicit Props, with a download link to `https://dayring.ai`. This is a website destination, not an app-store availability guarantee. Future application authorization should replace the BLE-bond-only setup criterion.
+
+Checks: `make test-pairing-startup test-qr-code`; `tools/preview/preview capture app://shell/pairing`.

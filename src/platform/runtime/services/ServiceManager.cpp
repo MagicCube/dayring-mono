@@ -19,6 +19,9 @@ ServiceManager::ServiceManager() {
     auto time = std::make_unique<time::TimeService>();
     _time = time.get();
     _services.push_back(std::move(time));
+    auto ble = std::make_unique<ble::BLEService>();
+    _ble = ble.get();
+    _services.push_back(std::move(ble));
 }
 
 ServiceManager::~ServiceManager() {
@@ -67,6 +70,14 @@ void ServiceManager::stop() {
 
 bool ServiceManager::isRunning() const {
     return !_transitioning && _started == _services.size();
+}
+
+ble::BLEService& ServiceManager::ble() {
+    return *_ble;
+}
+
+const ble::BLEService& ServiceManager::ble() const {
+    return *_ble;
 }
 
 frontlight::FrontlightService& ServiceManager::frontlight() {

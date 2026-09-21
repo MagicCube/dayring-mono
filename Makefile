@@ -6,10 +6,12 @@ CLANG_FORMAT ?= $(firstword $(shell command -v clang-format 2>/dev/null) $(wildc
 HOST_CXX ?= c++
 CXX_SOURCES := $(shell find src include tests tools/preview -type f \( -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \))
 
+QR_SOURCES := src/platform/ui/QRCode.cpp src/platform/ui/QRCodeEncoder.cpp
 APPLICATION_SOURCES := src/platform/ui/PageController.cpp src/platform/runtime/Application.cpp src/platform/runtime/ApplicationRouter.cpp \
     src/platform/runtime/ApplicationNavigation.cpp src/platform/runtime/ApplicationManager.cpp src/platform/runtime/AppURL.cpp
 FRONTLIGHT_SOURCES := src/platform/hal/services/FrontlightService.cpp src/platform/hal/Frontlight.cpp
 POWER_SOURCES := src/platform/hal/services/PowerService.cpp $(FRONTLIGHT_SOURCES)
+BLE_SOURCES := src/platform/ble/services/BLEService.cpp
 TIME_SOURCES := src/platform/time/services/TimeService.cpp
 HOST_UI_FLAGS := -isystem freeink-sdk/libs/hardware/Rtc/include -Isrc -Itests/stubs -isystem freeink-sdk/libs/ui/FreeInkUI/include
 
@@ -56,8 +58,8 @@ test-shell:
 	trap 'rm -f "$$shell_test"' EXIT; \
 	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror -Isrc -Itests/stubs \
 		-isystem freeink-sdk/libs/ui/FreeInkUI/include -isystem freeink-sdk/libs/hardware/Rtc/include \
-		tests/ShellApplicationTest.cpp src/apps/RegisterApplications.cpp src/apps/shell/ShellApplication.cpp src/apps/shell/pages/*.cpp src/apps/shell/components/*.cpp src/apps/shell/views/*.cpp \
-		src/apps/common/*.cpp src/apps/typography/*.cpp src/platform/runtime/Shell.cpp src/platform/tasking/services/TaskDispatchService.cpp src/platform/runtime/services/ServiceManager.cpp $(POWER_SOURCES) $(TIME_SOURCES) src/platform/ui/ApplicationContainer.cpp \
+		tests/ShellApplicationTest.cpp src/apps/RegisterApplications.cpp src/apps/shell/ShellApplication.cpp src/apps/shell/pages/*.cpp $(QR_SOURCES) src/apps/shell/components/*.cpp src/apps/shell/views/*.cpp \
+		src/apps/common/*.cpp src/apps/typography/*.cpp src/platform/runtime/Shell.cpp src/platform/tasking/services/TaskDispatchService.cpp src/platform/runtime/services/ServiceManager.cpp $(BLE_SOURCES) $(POWER_SOURCES) $(TIME_SOURCES) src/platform/ui/ApplicationContainer.cpp \
 		$(APPLICATION_SOURCES) \
 		src/platform/runtime/Input.cpp src/platform/runtime/Display.cpp src/platform/fonts/Fonts.cpp \
 		freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp -o "$$shell_test" && "$$shell_test"
@@ -73,7 +75,7 @@ test-home-entry:
 	trap 'rm -f "$$home_test"' EXIT; \
 	for home_url in 'app://calendar/path/to/page?id=42&mode=week#top' 'app://home' 'invalid'; do \
 		$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror $(HOST_UI_FLAGS) \
-			-D"DAYRING_HOME_URL=\"$$home_url\"" tests/HomeEntryTest.cpp tests/stubs/RuntimeDispatch.cpp src/apps/shell/components/StatusBar.cpp src/apps/shell/components/StatusBarController.cpp src/apps/shell/views/*.cpp freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp src/platform/runtime/Shell.cpp src/platform/tasking/services/TaskDispatchService.cpp src/platform/runtime/services/ServiceManager.cpp $(POWER_SOURCES) $(TIME_SOURCES) src/platform/ui/ApplicationContainer.cpp $(APPLICATION_SOURCES) -o "$$home_test" || exit $$?; \
+			-D"DAYRING_HOME_URL=\"$$home_url\"" tests/HomeEntryTest.cpp tests/stubs/RuntimeDispatch.cpp src/apps/shell/components/StatusBar.cpp src/apps/shell/components/StatusBarController.cpp src/apps/shell/views/*.cpp freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp src/platform/runtime/Shell.cpp src/platform/tasking/services/TaskDispatchService.cpp src/platform/runtime/services/ServiceManager.cpp $(BLE_SOURCES) $(POWER_SOURCES) $(TIME_SOURCES) src/platform/ui/ApplicationContainer.cpp $(APPLICATION_SOURCES) -o "$$home_test" || exit $$?; \
 		case "$$home_url" in app://calendar/*) expected=valid ;; *) expected=invalid ;; esac; \
 		"$$home_test" "$$expected" || exit $$?; \
 	done
@@ -82,7 +84,7 @@ test-shell-facade:
 	@facade_test=$$(mktemp /tmp/dayring-shell-facade-test.XXXXXX); \
 	trap 'rm -f "$$facade_test"' EXIT; \
 	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror $(HOST_UI_FLAGS) \
-		tests/ShellFacadeTest.cpp tests/stubs/RuntimeDispatch.cpp src/apps/shell/components/StatusBar.cpp src/apps/shell/components/StatusBarController.cpp src/apps/shell/views/*.cpp freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp src/platform/runtime/Shell.cpp src/platform/tasking/services/TaskDispatchService.cpp src/platform/runtime/services/ServiceManager.cpp $(POWER_SOURCES) $(TIME_SOURCES) src/platform/ui/ApplicationContainer.cpp $(APPLICATION_SOURCES) \
+		tests/ShellFacadeTest.cpp tests/stubs/RuntimeDispatch.cpp src/apps/shell/components/StatusBar.cpp src/apps/shell/components/StatusBarController.cpp src/apps/shell/views/*.cpp freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp src/platform/runtime/Shell.cpp src/platform/tasking/services/TaskDispatchService.cpp src/platform/runtime/services/ServiceManager.cpp $(BLE_SOURCES) $(POWER_SOURCES) $(TIME_SOURCES) src/platform/ui/ApplicationContainer.cpp $(APPLICATION_SOURCES) \
 		-o "$$facade_test" && "$$facade_test"
 
 test-power-service:
@@ -153,7 +155,7 @@ test-service-manager:
 	@service_test=$$(mktemp /tmp/dayring-service-manager-test.XXXXXX); \
 	trap 'rm -f "$$service_test"' EXIT; \
 	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror -fno-exceptions $(HOST_UI_FLAGS) \
-		tests/ServiceManagerTest.cpp tests/stubs/RuntimeDispatch.cpp $(POWER_SOURCES) $(TIME_SOURCES) src/platform/runtime/services/ServiceManager.cpp src/platform/tasking/services/TaskDispatchService.cpp \
+		tests/ServiceManagerTest.cpp tests/stubs/RuntimeDispatch.cpp $(POWER_SOURCES) $(TIME_SOURCES) src/platform/runtime/services/ServiceManager.cpp $(BLE_SOURCES) src/platform/tasking/services/TaskDispatchService.cpp \
 		-o "$$service_test" && "$$service_test"
 
 .PHONY: test-time-service
@@ -173,3 +175,31 @@ test-frontlight-service:
 	trap 'rm -f "$$frontlight_test"' EXIT; \
 	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror -fno-exceptions -Isrc -Itests/stubs \
 		tests/FrontlightServiceTest.cpp $(FRONTLIGHT_SOURCES) -o "$$frontlight_test" && "$$frontlight_test"
+
+.PHONY: test-ble-service
+test: test-ble-service
+
+test-ble-service:
+	@ble_test=$$(mktemp /tmp/dayring-ble-test.XXXXXX); \
+	trap 'rm -f "$$ble_test"' EXIT; \
+	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror -fno-exceptions -DARDUINO_ARCH_ESP32 \
+		-Itests/ble-stubs -Isrc tests/BLEServiceTest.cpp $(BLE_SOURCES) -o "$$ble_test" && "$$ble_test"
+
+.PHONY: test-pairing-startup
+test: test-pairing-startup
+
+test-pairing-startup:
+	@facade_test=$$(mktemp /tmp/dayring-shell-facade-test.XXXXXX); \
+	trap 'rm -f "$$facade_test"' EXIT; \
+	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror $(HOST_UI_FLAGS) \
+		tests/PairingStartupTest.cpp src/apps/shell/ShellApplication.cpp src/apps/shell/pages/*.cpp $(QR_SOURCES) tests/stubs/RuntimeDispatch.cpp src/apps/shell/components/StatusBar.cpp src/apps/shell/components/StatusBarController.cpp src/apps/shell/views/*.cpp freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp src/platform/runtime/Shell.cpp src/platform/tasking/services/TaskDispatchService.cpp src/platform/runtime/services/ServiceManager.cpp $(POWER_SOURCES) $(TIME_SOURCES) src/platform/ui/ApplicationContainer.cpp $(APPLICATION_SOURCES) \
+		-o "$$facade_test" && "$$facade_test"
+
+.PHONY: test-qr-code
+test: test-qr-code
+
+test-qr-code:
+	@qr_test=$$(mktemp /tmp/dayring-qr-test.XXXXXX); \
+	trap 'rm -f "$$qr_test"' EXIT; \
+	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror -fno-exceptions -Isrc \
+		tests/QRCodeTest.cpp $(QR_SOURCES) -o "$$qr_test" && "$$qr_test"

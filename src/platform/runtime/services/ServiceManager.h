@@ -3,6 +3,7 @@
 #include <memory>
 #include <vector>
 
+#include "../../ble/services/BLEService.h"
 #include "../../hal/services/FrontlightService.h"
 #include "../../hal/services/PowerService.h"
 #include "../../tasking/services/TaskDispatchService.h"
@@ -20,6 +21,8 @@ class ServiceManager {
     ServiceManager(ServiceManager&&) = delete;
     ServiceManager& operator=(ServiceManager&&) = delete;
 
+    [[nodiscard]] ble::BLEService& ble();
+    [[nodiscard]] const ble::BLEService& ble() const;
     [[nodiscard]] frontlight::FrontlightService& frontlight();
     [[nodiscard]] const frontlight::FrontlightService& frontlight() const;
     [[nodiscard]] power::PowerService& power();
@@ -42,6 +45,7 @@ class ServiceManager {
     power::PowerService* _power;
     tasking::TaskDispatchService* _tasks;
     time::TimeService* _time;
+    ble::BLEService* _ble;
     std::size_t _started = 0;
     bool _sealed = false;
     bool _transitioning = false;

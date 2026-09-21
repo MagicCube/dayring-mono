@@ -25,6 +25,7 @@ class Shell {
     [[nodiscard]] bool open(std::string_view url, OpenMode mode = OpenMode::Default);
     [[nodiscard]] static std::optional<AppURL> resolveURL(std::string_view url);
     [[nodiscard]] bool goHome();
+    [[nodiscard]] bool openStartupPage();
     [[nodiscard]] bool lock();
     [[nodiscard]] bool unlock();
     [[nodiscard]] bool isLocked() const;
@@ -41,10 +42,12 @@ class Shell {
    private:
     Shell();
     void _handleHomeGesture();
+    [[nodiscard]] bool _isPairingPage() const;
     ~Shell() = default;
     [[nodiscard]] bool _lock(const Intent& intent,
                              power::PowerService::LockReason reason = power::PowerService::LockReason::Manual);
     bool _firmwareUpdating = false;
+    bool _awaitingPairing = false;
     // Declared before applications so their handles are destroyed first.
     ServiceManager _services;
     ApplicationManager _applicationManager;

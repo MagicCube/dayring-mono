@@ -38,3 +38,7 @@ HAL `begin()` initializes the dedicated USB CDC control channel without waiting 
 Config: `platformio.ini`; RTC upload sync: `tools/platformio-upload-time/platformio-upload-time.py`. `make build`/`make upload` also format unrelated sources.
 
 Checks: `make test-board-startup test-power-service`; `.pio-core/penv/bin/python tests/FirmwareUploadHookTest.py`. Driver behavior, USB reset and image retention require device verification.
+
+## Bluetooth
+
+The BLE domain owns the NimBLE radio and GATT server through `src/platform/ble/services/BLEService.h/.cpp`; HAL does not initialize a second Bluetooth stack. ServiceManager owns its lifecycle. See [BLE](ble.md) for pairing and NVS persistence.

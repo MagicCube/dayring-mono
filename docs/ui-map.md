@@ -34,3 +34,13 @@ Use [Preview CLI](../tools/preview/README.md) for route captures and isolated Vi
 - UI changes require final real-page PNG capture, visual inspection and an absolute-path image in the response (see root `AGENTS.md`).
 
 Checks: `make test-shell test-navigation test-shell-facade test-preview`.
+
+## QR codes and pairing
+
+- `src/platform/ui/QRCode.h/.cpp`: value-owned encoded matrix, versions 1–10, medium error correction with automatic strengthening. `encode()` rejects invalid/oversized input and clears previous output on failure. Encode when content changes, not on every frame.
+- `src/platform/ui/QRCodeView.h`: reusable stateless black-on-white renderer; centers at an integer module scale and retains a four-module white quiet zone. Bounds too small to fit are left untouched; callers should also show the destination as text.
+- `third_party/qrcodegen/`: unmodified MIT-licensed Nayuki C library v1.8.0; `QRCodeEncoder.cpp` builds the same implementation for native previews and firmware without allocations or exceptions. FreeInk has no QR encoder; this application-level component uses its drawing primitives.
+- `src/apps/shell/pages/PairingPage.*`: fullscreen black setup page with Ndot heading, QR and plain-text URL.
+- `PairingPageController.*`: owns encoded content and observes pairing state; startup gating/navigation is owned by Shell.
+
+Capture: `tools/preview/preview capture app://shell/pairing`. QR decode validation of the actual PNG returns `https://dayring.ai`.

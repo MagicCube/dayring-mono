@@ -11,7 +11,7 @@ SET_LOOP_TASK_STACK_SIZE(16 * 1024);
 void setup() {
     platform::hal::begin();
     auto& shell = Shell::instance();
-    if (!shell.startServices() || !apps::registerApplications(shell) || !shell.goHome()) {
+    if (!shell.startServices() || !apps::registerApplications(shell) || !shell.openStartupPage()) {
         platform::hal::fatal();
     }
 }

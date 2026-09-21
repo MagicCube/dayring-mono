@@ -34,6 +34,13 @@ void Shell::update() {
         return;
     }
     _services.update(millis());
+    if (_awaitingPairing && _services.ble().bondCount() > 0) {
+        _awaitingPairing = false;
+        if (!goHome())
+            _awaitingPairing = true;
+        else
+            _services.power().notifyActivity();
+    }
     dispatchInput(*this);
     if (_services.power().isIdleLockDue() && _applicationManager.allowsIdleLock()) {
         (void)_lock(Intent{{"shell", "/lock"}}, power::PowerService::LockReason::Idle);
@@ -59,6 +66,8 @@ bool Shell::open(std::string_view url, OpenMode mode) {
     auto parsed = resolveURL(url);
     if (!parsed) return false;
     const auto resolved = "app://" + parsed->applicationName + parsed->location;
+    if (_awaitingPairing && resolved != "app://shell/pairing" && resolved != "app://shell/firmware-update")
+        return false;
     if (mode == OpenMode::Exact && _applicationManager.checkRoute(resolved) != RouteError::None) return false;
     const auto path = parsed->location.substr(0, parsed->location.find_first_of("?#"));
     if (parsed->applicationName == "shell" && path == "/lock") {
@@ -67,6 +76,13 @@ bool Shell::open(std::string_view url, OpenMode mode) {
     }
     if (isLocked()) return false;
     return _applicationManager.open(resolved, mode);
+}
+
+bool Shell::openStartupPage() {
+    if (_firmwareUpdating || !_services.isRunning()) return false;
+    _awaitingPairing =
+        _services.ble().bondCount() == 0 && _services.ble().state() != ble::BLEService::State::Unavailable;
+    return _awaitingPairing ? open("app://shell/pairing", OpenMode::Exact) : goHome();
 }
 
 bool Shell::goHome() {
@@ -96,7 +112,14 @@ bool Shell::lock() {
     return _lock(Intent{{"shell", "/lock"}});
 }
 
+bool Shell::_isPairingPage() const {
+    const auto current = AppURL::parse(_applicationManager.currentURL());
+    return current && current->applicationName == "shell" &&
+           current->location.substr(0, current->location.find_first_of("?#")) == "/pairing";
+}
+
 bool Shell::_lock(const Intent& intent, power::PowerService::LockReason reason) {
+    if (_awaitingPairing || _isPairingPage()) return false;
     if (isLocked()) return true;
     if (!_applicationManager._interrupt(intent)) return false;
     _services.power().setLocked(true, reason);
@@ -146,6 +169,14 @@ const ServiceManager& Shell::services() const {
 
 bool Shell::onInput(const InputEvent& event) {
     if (_firmwareUpdating) return true;
+    if (_awaitingPairing) {
+        _services.power().notifyActivity();
+        return true;
+    }
+    if (event.type == InputEvent::Type::PowerPress && _isPairingPage()) {
+        _services.power().notifyActivity();
+        return true;
+    }
     if (event.type == InputEvent::Type::PowerPress && !isLocked()) return lock();
     _services.power().notifyActivity();
     return _applicationContainer.onInput(event, isLocked() ? 200 : 0);

@@ -88,7 +88,7 @@ class PreviewTest(unittest.TestCase):
         self.assertIn("article=reading|display", invoke("help", "typography").stdout)
         result = json.loads(invoke("routes", "--json").stdout)
         self.assertEqual({r["url"] for r in result["routes"]}, {
-            "app://shell/", "app://shell/lock", "app://shell/firmware-update",
+            "app://shell/", "app://shell/lock", "app://shell/firmware-update", "app://shell/pairing",
             "app://typography/", "app://calendar/", "app://test/"})
         self.assertEqual(result["aliases"]["app://home"], "app://shell/")
         for route in result["routes"]:
@@ -225,7 +225,8 @@ class PreviewTest(unittest.TestCase):
         # Inspect actual compiler dependencies, not only the source allowlist.
         _, _, identity = build.configuration("view")
         self.assertIn(build.ROOT / "src/platform/runtime/services/ServiceManager.cpp", build.source_files("route"))
-        for service in ("hal/services/FrontlightService.cpp", "hal/services/PowerService.cpp", "time/services/TimeService.cpp"):
+        for service in ("hal/services/FrontlightService.cpp", "hal/services/PowerService.cpp",
+                        "ble/services/BLEService.cpp", "time/services/TimeService.cpp"):
             self.assertIn(build.ROOT / "src/platform" / service, build.source_files("route"))
             self.assertNotIn(build.ROOT / "src/platform" / service, build.source_files("view"))
         self.assertNotIn(build.ROOT / "src/platform/runtime/services/ServiceManager.cpp", build.source_files("view"))
