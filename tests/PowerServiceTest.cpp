@@ -245,6 +245,32 @@ int main() {
     inputActive = false;
     power.update(nowMs);
     assert(brightness == 0);
+    power.notifyLockInteraction();
+    assert(brightness == 20);
+    power.toggleLockedLight();
+    assert(brightness == 0);
+    power.toggleLockedLight();
+    assert(brightness == 20);
+    nowMs += 7000;
+    power.update(nowMs);
+    assert(brightness == 20);
+    power.notifyLockInteraction();
+    nowMs += 2000;
+    power.notifyPowerConnectionChanged();
+    nowMs += 5999;
+    power.update(nowMs);
+    assert(brightness == 20);  // Charging changes must not shorten the renewed eight-second window.
+    nowMs += 1;
+    power.update(nowMs);
+    assert(brightness == 0);
+    nowMs = std::numeric_limits<uint32_t>::max() - 5000;
+    power.notifyLockInteraction();
+    nowMs += 7999;
+    power.update(nowMs);
+    assert(brightness == 20);
+    nowMs += 1;
+    power.update(nowMs);
+    assert(brightness == 0);
     // A clock tick between boot/activity and idle sampling must not underflow.
     advanceClock = true;
     power.stop();
@@ -263,6 +289,7 @@ int main() {
     power.update(nowMs);
     power.notifyActivity();
     power.notifyPowerConnectionChanged();
+    power.notifyLockInteraction();
     power.setLocked(true);
     assert(!power.isIdleLockDue() && writes.size() == beforeStop);
     assert(!power.isRunning());

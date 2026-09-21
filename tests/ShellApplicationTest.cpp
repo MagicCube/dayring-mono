@@ -491,21 +491,27 @@ int main() {
         nowMs = 3000;
         assert(lock.update());
         using Type = platform::runtime::InputEvent::Type;
-        assert(lock.onInput({Type::PowerPress}));
-        assert(lock.update());
-        nowMs = 7999;
+        assert(lock.onInput({Type::TouchPress, 200, 400}));
         assert(!lock.update());
         assert(lock.onInput({Type::TouchRelease, 200, 400}));
-        assert(!lock.update());
-        nowMs = 12998;
-        assert(!lock.update());
-        nowMs = 12999;
+        assert(!lock.update());  // One press/release pair is one interaction.
+        nowMs = 4000;
+        assert(lock.onInput({Type::TouchRelease, 200, 400}));
         assert(lock.update());
+        nowMs = 8999;
         assert(!lock.update());
+        nowMs = 9000;
+        assert(lock.update());  // Hint ends at five seconds while the light window continues.
+        nowMs = 11999;
+        assert(!lock.update());
+        nowMs = 12000;
+        assert(!lock.update());
+        assert(lock.onInput({Type::TouchRelease, 200, 400}));
+        assert(!lock.update());  // After expiry, the first touch only lights the screen.
         assert(lock.onInput({Type::Swipe, 200, 600, 200, 400}));
         assert(lock.update());
         lock.onEnter({});
-        nowMs += 5000;
+        nowMs += 8000;
         assert(!lock.update());
         nowMs = 0;
     }
@@ -537,9 +543,13 @@ int main() {
     assert(std::any_of(pixels.begin(), pixels.end(), [](uint8_t byte) { return byte != 0; }));
     const auto lockPixels = pixels;
 
-    // Power cannot unlock; an upward swipe still works during refresh.
+    // Power wakes the locked screen; an upward swipe still works during refresh.
     tick(true);
+    assert(facade().isLocked() && frontlightBrightness == 20);
+    assert(facade().onInput({platform::runtime::InputEvent::Type::PowerPress}));
     assert(facade().isLocked() && frontlightBrightness == 0);
+    assert(facade().onInput({platform::runtime::InputEvent::Type::PowerPress}));
+    assert(facade().isLocked() && frontlightBrightness == 20);
     assert(facade().onInput({platform::runtime::InputEvent::Type::Swipe, 240, 400, 240, 600}));
     assert(facade().isLocked());
     swipeUp();
@@ -581,7 +591,7 @@ int main() {
     assert(pixels.front() == 0x00 && pixels != lockPixels);
     assert(manager.onInput({platform::runtime::InputEvent::Type::TouchPress, 100, 100}));
     assert(!manager.allowsIdleLock());
-    assert(frontlightBrightness == 0);
+    assert(frontlightBrightness == 20);
     assert(!shellApplication->navigation().canPop());
     assert(facade().unlock());
     assert(facade().open("app://shell/"));

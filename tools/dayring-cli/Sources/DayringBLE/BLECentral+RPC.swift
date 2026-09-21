@@ -2,6 +2,11 @@ import CoreBluetooth
 import Foundation
 
 extension BLECentral {
+    public var isRPCReady: Bool {
+        dispatchPrecondition(condition: .onQueue(.main))
+        return _rpcReady
+    }
+
     public func peripheral(_ peripheral: CBPeripheral, didModifyServices invalidatedServices: [CBService]) {
         guard _running, !_reconnecting, peripheral === _peripheral,
               invalidatedServices.contains(where: { $0.uuid == CBUUID(nsuuid: _profile.serviceUUID) }) else { return }

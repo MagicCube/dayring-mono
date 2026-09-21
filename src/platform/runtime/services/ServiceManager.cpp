@@ -28,6 +28,10 @@ ServiceManager::ServiceManager() {
     auto time = std::make_unique<time::TimeService>(_rpc);
     _time = time.get();
     _services.push_back(std::move(time));
+    auto calendar =
+        std::make_unique<calendar::CalendarService>(*_rpc, [this] { return calendar::sampleClock(*_time); });
+    _calendar = calendar.get();
+    _services.push_back(std::move(calendar));
 }
 
 ServiceManager::~ServiceManager() {
@@ -116,6 +120,14 @@ time::TimeService& ServiceManager::time() {
 
 const time::TimeService& ServiceManager::time() const {
     return *_time;
+}
+
+calendar::CalendarService& ServiceManager::calendar() {
+    return *_calendar;
+}
+
+const calendar::CalendarService& ServiceManager::calendar() const {
+    return *_calendar;
 }
 
 tasking::TaskDispatchService& ServiceManager::tasks() {

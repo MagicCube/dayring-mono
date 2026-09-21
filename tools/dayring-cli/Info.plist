@@ -4,4 +4,6 @@
 <key>CFBundleIdentifier</key><string>dev.dayring.ble-cli</string>
 <key>CFBundleName</key><string>Dayring CLI</string>
 <key>NSBluetoothAlwaysUsageDescription</key><string>Discover and connect to Dayring development devices.</string>
+<key>NSCalendarsUsageDescription</key><string>Read today and tomorrow’s calendar events for Dayring preview cards.</string>
+<key>NSCalendarsFullAccessUsageDescription</key><string>Read today and tomorrow’s calendar events for Dayring preview cards. Dayring does not modify calendars.</string>
 </dict></plist>

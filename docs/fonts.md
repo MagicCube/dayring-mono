@@ -25,7 +25,7 @@
 
 | ID | `Font` enumerator | Source face | Pixel size | Line height | Recommended use |
 | --- | --- | --- | --- | --- | --- |
-| 0 | `RobotoS` | Roboto Regular | 23 | 28 | Status bar, captions, metadata |
+| 0 | `RobotoS` | Roboto Regular | 22 | 27 | Status bar, captions, metadata |
 | 1 | `RobotoM` | Roboto Regular | 28 | 33 | Body text, standard labels |
 | 2 | `RobotoL` | Roboto Medium | 32 | 38 | Section headings, prominent labels |
 | 3 | `RobotoXL` | Roboto Medium | 40 | 48 | Page headings, subheadings |

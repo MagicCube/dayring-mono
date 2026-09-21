@@ -22,16 +22,29 @@
 
 ## Contracts
 
-- `runtime::Shell` owns ServiceManager, which starts FrontlightService, PowerService, TaskDispatchService, BLEService, RPCService, DeviceControlService, then TimeService and stops them in reverse order. Services are declared before applications so application handles are destroyed first. Service updates run before input dispatch and foreground updates, including while locked or refreshing; each loop permits eight task steps.
+- `runtime::Shell` owns ServiceManager, which starts FrontlightService, PowerService, TaskDispatchService, BLEService, RPCService, DeviceControlService, TimeService, then CalendarService and stops them in reverse order. Services are declared before applications so application handles are destroyed first. Service updates run before input dispatch and foreground updates, including while locked or refreshing; each loop permits eight task steps.
 - `runtime::Shell` owns manager/container and accesses PowerService through ServiceManager. `ShellApplication` is a resident application owning page controllers. Use the facade for production opens; direct manager calls bypass home/lock URL policy.
 - Lock temporarily presents outside navigation history; unlock restores the same instance/location, including when interrupting Shell itself. Power timing belongs in [HAL](hal.md).
 - Input/update continue during refresh. Input priority: power press, completed single-contact swipe, completed tap release. Runtime converts both swipe endpoints to logical portrait coordinates.
 - Container owns bottom-edge gesture capture; Shell requires 200 px upward displacement to unlock. While unlocked, it goes Home unless already at the configured application and full location (query/fragment included). Explicit Home opens retain re-entry behavior.
-- Power presses lock only while unlocked. Locked input shows the five-second unlock hint without unlocking or extending normal lighting. Successful unlock gestures are consumed by the container.
+- Power presses lock only while unlocked. The lock-screen Power button toggles the frontlight immediately while remaining locked. The first touch interaction lights the screen for eight seconds without a hint. A second interaction within that window renews eight seconds of lighting and shows the hint for five seconds. Successful unlock gestures are consumed by the container.
 
 ## Lock status
 
-`LockPageController` samples external power each second; percentage on entry, connection and displayed-minute changes. SDK charging means external power is present. Unknown percentage displays `Charging`; 100% displays `Fully Charged` as a UI convention, not charger termination. Only known connection changes trigger temporary lighting. No sleep wake source is added.
+`LockPageController` samples external power each second; percentage on entry, connection and displayed-minute changes. SDK charging means external power is present. Unknown percentage displays `Charging`; 100% displays `Fully Charged` as a UI convention, not charger termination. Known connection changes also trigger temporary lighting and do not shorten an active lock-interaction light window. No sleep wake source is added.
+
+## Lock calendar preview
+
+LockPageController reads `CalendarService::upcoming()` on entry, stably prioritizes all-day occurrences, and keeps at most three rows and subscribes while active. Snapshot/time changes mark its data dirty; minute/date updates also refresh relative day labels. `onLeave` releases the scoped subscription, and re-entry reads the latest service state. The page receives presentation-only title/location/time/day Props with no service or hardware dependency.
+
+The list sits 24 px above the bottom edge and remains visible while the unlock hint is shown. The hint shares the fixed line below the clock with charging status and takes priority over it. It lasts five seconds, then returns to the current charging status or an empty line. The first interaction after entering Lock or after eight seconds without an interaction only lights the screen; a second interaction within that window shows the hint. Further interactions renew the light window and, when shown, the independent five-second hint timer. Press/release pairs count once. Successful unlock swipes are consumed by the container and return to ordinary unlocked power policy.
+
+Timed events have two left-aligned rows: RobotoL title, then RobotoM light-gray time range (`14:00-15:00`). All-day events use a title row followed by a gray RobotoM `All day` line; timed ranges also use RobotoM. Location remains in the service data but is not displayed. Today's group is labeled `Upcoming`; it and `Tomorrow` use RobotoS. Empty groups are omitted. All-day entries are stably prioritized in `Upcoming` before applying the three-row limit, including tomorrow's all-day entries. Timed tomorrow entries remain in `Tomorrow`. There are no card backgrounds. FreeInk `maxLines = 1` handles overflow without manual character truncation.
+
+Layout spacing remains on a four-pixel grid: 32 px side insets, 16 px between the rule and text, 4 px between text rows, 4 px between events within a group, 16 px between groups, 4 px below each group label, and 24 px bottom inset. Font line boxes round up to a multiple of four. Each vertical marker is a slim rounded rectangle, 6 px wide with a 3 px corner radius. Existing font coverage remains printable ASCII; adding CJK glyphs is separate font work.
+
+
+Use native `--calendar` fixtures in the [preview CLI](../tools/preview/README.md#local-calendar-fixtures). No mock data is compiled into firmware.
 
 ## Firmware update
 

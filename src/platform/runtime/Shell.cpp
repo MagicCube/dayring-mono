@@ -177,7 +177,11 @@ bool Shell::onInput(const InputEvent& event) {
         _services.power().notifyActivity();
         return true;
     }
-    if (event.type == InputEvent::Type::PowerPress && !isLocked()) return lock();
+    if (event.type == InputEvent::Type::PowerPress) {
+        if (!isLocked()) return lock();
+        _services.power().toggleLockedLight();
+        return true;
+    }
     _services.power().notifyActivity();
     return _applicationContainer.onInput(event, isLocked() ? 200 : 0);
 }

@@ -2,7 +2,7 @@
 
 ## Ownership and startup
 
-ServiceManager starts `Frontlight → Power → TaskDispatch → BLE → RPC → DeviceControl → Time`. Shutdown reverses this order: Time cancels its request and removes handlers, DeviceControl cancels scheduled actions and removes its handlers, RPC cancels its scheduler task and pending completions, then BLE stops the host before destroying callback storage. No service start waits for a phone.
+ServiceManager starts `Frontlight → Power → TaskDispatch → BLE → RPC → DeviceControl → Time → Calendar`. Shutdown reverses this order: Calendar cancels its requests and removes its handler, Time cancels its request and removes handlers, DeviceControl cancels scheduled actions and removes its handlers, RPC cancels its scheduler task and pending completions, then BLE stops the host before destroying callback storage. No service start waits for a phone.
 
 | Responsibility | Entry point |
 | --- | --- |
@@ -100,6 +100,8 @@ Responses must match both request ID and method. Errors contain exactly one nonz
 | 5 | `clock.status` | Empty request to device; 12-byte RTC readback: state, year u16, month, day, hour, minute, second, offset i32 |
 | 6 | `pairing.reset` | Empty request starts asynchronous BLE-store erasure; `[1]` polls the same session. Reply `[0]` means pending, `[1]` means persisted keys/subscriptions cleared; error 7 means failure |
 | 7 | `device.reboot` | Empty request schedules software restart; empty reply acknowledges scheduling, not completion |
+
+Calendar CLI methods 8 (`calendar.begin`), 9 (`calendar.changed`), 10 (`calendar.read`), and 11 (`calendar.status`) are assigned by the [calendar contract](calendar.md#implemented-cli-contract). The macOS CLI serves snapshots and the ESP32 CalendarService implements the pull client and method-9 handler. A physical real-EventKit pull and saved-state readback passed on 2026-09-21; see calendar verification details. Begin/read use business-level snapshot paging on top of D2 fragmentation. Do not reuse IDs 8–11 for other application handlers.
 
 Clock status states are 0 waiting, 1 pending, 2 synchronized, 3 failed. Custom Swift handlers use IDs above 7. BLECentral exposes `requestRPC`, `cancelRPC`, and `registerRPCHandler`; the standalone RPCPeer is independent of Core Bluetooth and can also be used with another transport.
 

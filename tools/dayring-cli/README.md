@@ -84,3 +84,17 @@ Stop `dev-server` first, then use the exact Core Bluetooth UUID shown by `dev-se
 The reset method is `pairing.reset` (6): empty payload starts erasure; `[1]` polls status; `[0]` response is pending, `[1]` is erased, remote error 7 is failure. Polling is scoped to the requesting RPC session. The CLI uses five-second request deadlines and a bounded operation deadline (`--timeout`, default 20 seconds after RPC readiness). A timed-out reset may have completed remotely; do not infer an unchanged device from a lost response.
 
 Automated administration tests use fakes and do not modify this Mac's bonds or reboot a real ESP32. Physical erasure/restart behavior and OS-specific unpairing permissions must be verified separately when deliberately exercising those commands.
+
+## Two-day calendar snapshots
+
+```sh
+./tools/dayring-cli/dayring-cli calendar --timeout 60
+```
+
+This command requests calendar read permission and writes a compact UTF-8 JSON snapshot to stdout without connecting to Bluetooth. Diagnostics go to stderr. The snapshot contains all non-cancelled events in today and tomorrow's natural-day window, in the Mac system timezone, from all accessible EventKit calendars. Completed, ongoing, and later-today events are included; cancelled events are excluded. Recurring events are already flattened. There is no five-event limit and no implicit declined-invitation filter.
+
+Every event has only `instanceId`, `title`, `location`, `start`, `end`, and `isAllDay`. The envelope includes schema version, generation time, timezone, and coverage bounds. All-day end dates are exclusive. Calendar access requires full event permission on macOS 14+ (legacy access on macOS 13); the CLI does not write calendar data. If denied, grant access to the requesting executable/terminal host in System Settings > Privacy & Security > Calendars and retry.
+
+Normal `dev-server` starts the calendar provider automatically. EventKit queries run off the main queue. Device pull uses `calendar.begin` (8) followed by `calendar.read` (10) for immutable JSON chunks; Mac pushes only empty `calendar.changed` (9) requests after a relevant normalized change. ESP32 CalendarService implements the client and method-9 handler; Lock-screen integration and a physical BLE pull/save-state readback have been verified; Home integration remains pending. Existing firmware can continue clock synchronization and reports unknown-method for calendar notifications, which the CLI suppresses for the rest of that session. After serving the final chunk, the CLI reads `calendar.status` (11) and prints device sync/save state and counts without event contents. See [Calendar contract](../../docs/calendar.md#implemented-cli-contract) for payloads, busy/error handling, retry and safety budgets.
+
+`--help`, `dev-server --list`, `--connect-only`, reset, and reboot do not request calendar access. `make test-cli-calendar` tests synthetic calendars and RPC state without reading personal events or operating hardware.

@@ -14,6 +14,7 @@ POWER_SOURCES := src/platform/hal/services/PowerService.cpp $(FRONTLIGHT_SOURCES
 BLE_SOURCES := src/platform/ble/services/BLEService.cpp
 RPC_SOURCES := src/platform/rpc/services/RPCService.cpp src/platform/rpc/MessageChannel.cpp
 CONTROL_SOURCES := src/platform/hal/services/DeviceControlService.cpp src/platform/hal/Restart.cpp
+CALENDAR_SOURCES := $(wildcard src/platform/calendar/*.cpp src/platform/calendar/services/*.cpp)
 TIME_SOURCES := src/platform/time/services/TimeService.cpp $(RPC_SOURCES)
 HOST_UI_FLAGS := -isystem freeink-sdk/libs/hardware/Rtc/include -Isrc -Itests/stubs -isystem freeink-sdk/libs/ui/FreeInkUI/include
 
@@ -64,7 +65,7 @@ test-shell:
 	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror -Isrc -Itests/stubs \
 		-isystem freeink-sdk/libs/ui/FreeInkUI/include -isystem freeink-sdk/libs/hardware/Rtc/include \
 		tests/ShellApplicationTest.cpp src/apps/RegisterApplications.cpp src/apps/shell/ShellApplication.cpp src/apps/shell/pages/*.cpp $(QR_SOURCES) src/apps/shell/components/*.cpp src/apps/shell/views/*.cpp \
-		src/apps/common/*.cpp src/apps/typography/*.cpp src/platform/runtime/Shell.cpp src/platform/tasking/services/TaskDispatchService.cpp src/platform/runtime/services/ServiceManager.cpp $(CONTROL_SOURCES) $(BLE_SOURCES) $(POWER_SOURCES) $(TIME_SOURCES) src/platform/ui/ApplicationContainer.cpp \
+		src/apps/common/*.cpp src/apps/typography/*.cpp src/platform/runtime/Shell.cpp src/platform/tasking/services/TaskDispatchService.cpp src/platform/runtime/services/ServiceManager.cpp $(CALENDAR_SOURCES) $(CONTROL_SOURCES) $(BLE_SOURCES) $(POWER_SOURCES) $(TIME_SOURCES) src/platform/ui/ApplicationContainer.cpp \
 		$(APPLICATION_SOURCES) \
 		src/platform/runtime/Input.cpp src/platform/runtime/Display.cpp src/platform/fonts/Fonts.cpp \
 		freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp -o "$$shell_test" && "$$shell_test"
@@ -80,7 +81,7 @@ test-home-entry:
 	trap 'rm -f "$$home_test"' EXIT; \
 	for home_url in 'app://calendar/path/to/page?id=42&mode=week#top' 'app://home' 'invalid'; do \
 		$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror $(HOST_UI_FLAGS) \
-			-D"DAYRING_HOME_URL=\"$$home_url\"" tests/HomeEntryTest.cpp tests/stubs/RuntimeDispatch.cpp src/apps/shell/components/StatusBar.cpp src/apps/shell/components/StatusBarController.cpp src/apps/shell/views/*.cpp freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp src/platform/runtime/Shell.cpp src/platform/tasking/services/TaskDispatchService.cpp src/platform/runtime/services/ServiceManager.cpp $(CONTROL_SOURCES) $(BLE_SOURCES) $(POWER_SOURCES) $(TIME_SOURCES) src/platform/ui/ApplicationContainer.cpp $(APPLICATION_SOURCES) -o "$$home_test" || exit $$?; \
+			-D"DAYRING_HOME_URL=\"$$home_url\"" tests/HomeEntryTest.cpp tests/stubs/RuntimeDispatch.cpp src/apps/shell/components/StatusBar.cpp src/apps/shell/components/StatusBarController.cpp src/apps/shell/views/*.cpp freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp src/platform/runtime/Shell.cpp src/platform/tasking/services/TaskDispatchService.cpp src/platform/runtime/services/ServiceManager.cpp $(CALENDAR_SOURCES) $(CONTROL_SOURCES) $(BLE_SOURCES) $(POWER_SOURCES) $(TIME_SOURCES) src/platform/ui/ApplicationContainer.cpp $(APPLICATION_SOURCES) -o "$$home_test" || exit $$?; \
 		case "$$home_url" in app://calendar/*) expected=valid ;; *) expected=invalid ;; esac; \
 		"$$home_test" "$$expected" || exit $$?; \
 	done
@@ -89,7 +90,7 @@ test-shell-facade:
 	@facade_test=$$(mktemp /tmp/dayring-shell-facade-test.XXXXXX); \
 	trap 'rm -f "$$facade_test"' EXIT; \
 	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror $(HOST_UI_FLAGS) \
-		tests/ShellFacadeTest.cpp tests/stubs/RuntimeDispatch.cpp src/apps/shell/components/StatusBar.cpp src/apps/shell/components/StatusBarController.cpp src/apps/shell/views/*.cpp freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp src/platform/runtime/Shell.cpp src/platform/tasking/services/TaskDispatchService.cpp src/platform/runtime/services/ServiceManager.cpp $(CONTROL_SOURCES) $(BLE_SOURCES) $(POWER_SOURCES) $(TIME_SOURCES) src/platform/ui/ApplicationContainer.cpp $(APPLICATION_SOURCES) \
+		tests/ShellFacadeTest.cpp tests/stubs/RuntimeDispatch.cpp src/apps/shell/components/StatusBar.cpp src/apps/shell/components/StatusBarController.cpp src/apps/shell/views/*.cpp freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp src/platform/runtime/Shell.cpp src/platform/tasking/services/TaskDispatchService.cpp src/platform/runtime/services/ServiceManager.cpp $(CALENDAR_SOURCES) $(CONTROL_SOURCES) $(BLE_SOURCES) $(POWER_SOURCES) $(TIME_SOURCES) src/platform/ui/ApplicationContainer.cpp $(APPLICATION_SOURCES) \
 		-o "$$facade_test" && "$$facade_test"
 
 test-power-service:
@@ -160,7 +161,7 @@ test-service-manager:
 	@service_test=$$(mktemp /tmp/dayring-service-manager-test.XXXXXX); \
 	trap 'rm -f "$$service_test"' EXIT; \
 	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror -fno-exceptions $(HOST_UI_FLAGS) \
-		tests/ServiceManagerTest.cpp tests/stubs/RuntimeDispatch.cpp $(POWER_SOURCES) $(TIME_SOURCES) src/platform/runtime/services/ServiceManager.cpp $(CONTROL_SOURCES) $(BLE_SOURCES) src/platform/tasking/services/TaskDispatchService.cpp \
+		tests/ServiceManagerTest.cpp tests/stubs/RuntimeDispatch.cpp $(POWER_SOURCES) $(TIME_SOURCES) src/platform/runtime/services/ServiceManager.cpp $(CALENDAR_SOURCES) $(CONTROL_SOURCES) $(BLE_SOURCES) src/platform/tasking/services/TaskDispatchService.cpp \
 		-o "$$service_test" && "$$service_test"
 
 .PHONY: test-time-service
@@ -197,7 +198,7 @@ test-pairing-startup:
 	@facade_test=$$(mktemp /tmp/dayring-shell-facade-test.XXXXXX); \
 	trap 'rm -f "$$facade_test"' EXIT; \
 	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror $(HOST_UI_FLAGS) \
-		tests/PairingStartupTest.cpp src/apps/shell/ShellApplication.cpp src/apps/shell/pages/*.cpp $(QR_SOURCES) tests/stubs/RuntimeDispatch.cpp src/apps/shell/components/StatusBar.cpp src/apps/shell/components/StatusBarController.cpp src/apps/shell/views/*.cpp freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp src/platform/runtime/Shell.cpp src/platform/tasking/services/TaskDispatchService.cpp src/platform/runtime/services/ServiceManager.cpp $(CONTROL_SOURCES) $(POWER_SOURCES) $(TIME_SOURCES) src/platform/ui/ApplicationContainer.cpp $(APPLICATION_SOURCES) \
+		tests/PairingStartupTest.cpp src/apps/shell/ShellApplication.cpp src/apps/shell/pages/*.cpp $(QR_SOURCES) tests/stubs/RuntimeDispatch.cpp src/apps/shell/components/StatusBar.cpp src/apps/shell/components/StatusBarController.cpp src/apps/shell/views/*.cpp freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp src/platform/runtime/Shell.cpp src/platform/tasking/services/TaskDispatchService.cpp src/platform/runtime/services/ServiceManager.cpp $(CALENDAR_SOURCES) $(CONTROL_SOURCES) $(POWER_SOURCES) $(TIME_SOURCES) src/platform/ui/ApplicationContainer.cpp $(APPLICATION_SOURCES) \
 		-o "$$facade_test" && "$$facade_test"
 
 .PHONY: test-qr-code
@@ -271,3 +272,36 @@ test-cli-administration:
 	swiftc -I "$$swift_bin/Modules" "$$swift_bin"/DayringBLE.build/*.swift.o \
 		tools/dayring-cli/Sources/DayringCLI/Options.swift tools/dayring-cli/Sources/DayringCLI/AdministrationRunner.swift \
 		tools/dayring-cli/Tests/Administration/AdminChecks.swift -o .cache/rpc-admin/cli-checks && .cache/rpc-admin/cli-checks
+
+.PHONY: test-cli-calendar
+test-cli-calendar:
+	swift build --package-path tools/dayring-cli --scratch-path .cache/dayring-cli --build-system native
+	@mkdir -p .cache/calendar
+	@swift_bin=$$(swift build --package-path tools/dayring-cli --scratch-path .cache/dayring-cli --build-system native --show-bin-path); \
+	swiftc -I "$$swift_bin/Modules" "$$swift_bin"/DayringBLE.build/*.swift.o \
+		tools/dayring-cli/Sources/DayringCLI/Calendar/CalendarSnapshot.swift \
+		tools/dayring-cli/Sources/DayringCLI/Calendar/CalendarRPCService.swift \
+		tools/dayring-cli/Tests/Calendar/CalendarChecks.swift -o .cache/calendar/checks && .cache/calendar/checks
+
+.PHONY: test-calendar
+test: test-calendar
+test-calendar:
+	@mkdir -p .cache/calendar
+	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror -fno-exceptions $(HOST_UI_FLAGS) \
+		tests/CalendarServiceTest.cpp $(filter-out src/platform/calendar/CalendarClock.cpp,$(CALENDAR_SOURCES)) \
+		$(RPC_SOURCES) src/platform/tasking/services/TaskDispatchService.cpp -o .cache/calendar/service-checks
+	.cache/calendar/service-checks
+	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror -fno-exceptions $(HOST_UI_FLAGS) \
+		tests/CalendarModelTest.cpp src/platform/calendar/Calendar.cpp src/platform/calendar/CalendarStorage.cpp \
+		src/platform/calendar/Json.cpp -o .cache/calendar/model-checks
+	.cache/calendar/model-checks
+
+.PHONY: test-calendar-interop
+test-calendar-interop:
+	@mkdir -p .cache/calendar
+	swiftc tools/dayring-cli/Sources/DayringCLI/Calendar/CalendarSnapshot.swift \
+		tools/dayring-cli/Tests/Calendar/CalendarWireFixture.swift -o .cache/calendar/swift-fixture
+	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror -fno-exceptions $(HOST_UI_FLAGS) \
+		tests/CalendarInteropTest.cpp $(filter-out src/platform/calendar/CalendarClock.cpp,$(CALENDAR_SOURCES)) \
+		$(RPC_SOURCES) src/platform/tasking/services/TaskDispatchService.cpp -o .cache/calendar/interop-checks
+	.cache/calendar/swift-fixture | .cache/calendar/interop-checks

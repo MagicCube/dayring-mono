@@ -12,6 +12,7 @@ class PowerService final : public runtime::Service {
     explicit PowerService(frontlight::FrontlightService& frontlight);
 
     enum class LockReason { Manual, Idle };
+    static constexpr uint32_t lockInteractionDurationMs = 8000;
 
     [[nodiscard]] bool start() override;
     void stop() override;
@@ -19,6 +20,8 @@ class PowerService final : public runtime::Service {
     [[nodiscard]] bool isRunning() const;
     void notifyActivity();
     void notifyPowerConnectionChanged();
+    void notifyLockInteraction();
+    void toggleLockedLight();
     void setLocked(bool locked, LockReason reason = LockReason::Manual);
     [[nodiscard]] bool isIdleLockDue() const;
 
@@ -37,6 +40,7 @@ class PowerService final : public runtime::Service {
     frontlight::FrontlightService& _frontlight;
     bool _locked = false;
     bool _hasLocked = false;
+    bool _lockInteractionLightActive = false;
 };
 
 }  // namespace platform::power

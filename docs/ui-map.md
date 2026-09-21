@@ -9,6 +9,7 @@ Design rules and rationale: [UI architecture](ui.md).
 | Presentation-only pages with default Props | `src/platform/ui/StaticPageController.h` | `StaticPageController<PageType>` |
 | Status layout, full-frame composition, touch filtering and home gesture | `src/platform/ui/ApplicationContainer.cpp` | `render`, `needsRender`, `onInput` |
 | Status clock/battery sampling and BLE state/blink timing | `src/apps/shell/components/StatusBarController.cpp` | `update`, `render` |
+| Lock upcoming calendar list and subscription | `src/apps/shell/pages/LockPage.*`, `LockPageController.*` | `_renderCalendar`, `_refreshCalendar`, `onEnter`, `onLeave` |
 | Minute change timing | `src/platform/time/services/TimeService.cpp` | `update`, `displayTime`, `minuteRevision` |
 | Framebuffer adapter and refresh gate | `src/platform/runtime/Display.cpp` | `displayDevice`, `renderFrame` |
 | Article typography preview and tap/swipe paging | `src/apps/typography/TypographyPage.*` | `render`, `_renderArticle`; `TypographyPageController` handles input |

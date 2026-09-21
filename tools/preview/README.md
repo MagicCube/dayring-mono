@@ -96,4 +96,16 @@ All exports use the same 480 x 800 portrait frame. Page examples use the complet
 
 Both targets use independent build identities and retain per-translation-unit caching. Measure warm end-to-end capture separately from cold compilation; the development target is below one second for an unchanged capture. See [UI architecture](../../docs/ui.md) for ownership, rendering, and portability rules.
 
-Use `capture app://shell/lock --power-press` to preview the transient unlock hint through the real Shell input path. The optional flag sends one power press after the initial page render; it is available for any route and follows normal firmware input behavior.
+Use `capture app://shell/lock --lock-taps 1` to preview the first wake interaction, or `--lock-taps 2` to show the five-second unlock hint through the real Shell input path. `--power-press` remains available and sends one power press.
+
+## Local calendar fixtures
+
+```sh
+./tools/preview/preview capture app://shell/lock --calendar sample --time 13:40
+./tools/preview/preview capture app://shell/lock --calendar long-title --time 13:40
+./tools/preview/preview capture app://shell/lock --calendar all-day --time 19:30
+```
+
+`--calendar empty|sample|long-title|all-day` defaults to `empty`. The native-only storage adapter supplies a complete synthetic today/tomorrow JSON snapshot to the real CalendarService. Real upcoming selection, controller subscription, and page rendering remain in use; no personal calendar, FAT partition, BLE session, or production mock route is involved. The sample includes a completed event and four future candidates to exercise filtering and the three-row limit. Fixtures use explicit UTC offsets consistent with the preview's local-wall-time clock. The `all-day` fixture includes tomorrow's birthday, and `long-title` exercises FreeInk single-line ellipsis; its long location remains source data and is not displayed. The selected fixture is recorded in JSON output under `state.calendar`.
+
+On Lock, the first tap only lights the screen for eight seconds. A second tap renews the eight-second light window and shows `Swipe up to unlock` for five seconds in the charging-status line; charging text returns afterward, or the line becomes empty. Calendar rows remain visible and stable. Combine `--lock-taps 2 --battery-charging` to verify hint/charging exclusivity.

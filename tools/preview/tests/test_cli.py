@@ -130,6 +130,46 @@ class PreviewTest(unittest.TestCase):
         self.assertEqual(home["resolved_url"], "app://shell/")
         self.assertEqual(decode(home["output"])[2], base)
 
+    def test_lock_calendar_mock(self):
+        common = ("app://shell/lock", "--calendar", "sample", "--time", "13:40")
+        baseline = decode(self.capture(*common)["output"])[2]
+        first_tap = decode(self.capture(*common, "--lock-taps", "1")["output"])[2]
+        self.assertEqual(baseline, first_tap)
+        hinted = decode(self.capture(*common, "--lock-taps", "2")["output"])[2]
+        self.assertEqual(baseline[:480 * 208], hinted[:480 * 208])
+        self.assertEqual(baseline[480 * 272:], hinted[480 * 272:])
+        self.assertNotEqual(baseline[480 * 208:480 * 272], hinted[480 * 208:480 * 272])
+        charging = decode(self.capture(*common, "--battery-charging")["output"])[2]
+        charging_hint = decode(self.capture(*common, "--battery-charging", "--lock-taps", "2")["output"])[2]
+        self.assertEqual(charging_hint, hinted)
+        self.assertNotEqual(charging[480 * 208:480 * 272], charging_hint[480 * 208:480 * 272])
+        empty = decode(self.capture("app://shell/lock", "--calendar", "empty", "--time", "13:40")["output"])[2]
+        self.assertEqual(baseline[:480 * 320], empty[:480 * 320])
+        self.assertNotEqual(baseline[480 * 320:480 * 760], empty[480 * 320:480 * 760])
+        # Four future candidates in the fixture still produce only three left-hand rules.
+        rules = [baseline[y * 480 + 32] == 255 for y in range(320, 760)]
+        self.assertEqual(sum(value and (i == 0 or not rules[i - 1]) for i, value in enumerate(rules)), 3)
+        long_title = decode(self.capture("app://shell/lock", "--calendar", "long-title", "--time", "13:40")["output"])[2]
+        # The long title changes its first row, while the second-line time and later rows stay fixed.
+        self.assertNotEqual(baseline, long_title)
+        self.assertEqual(baseline[480 * 524:], long_title[480 * 524:])
+        later = decode(self.capture("app://shell/lock", "--calendar", "sample", "--time", "19:30")["output"])[2]
+        self.assertNotEqual(baseline[480 * 320:], later[480 * 320:])
+        all_day = self.capture("app://shell/lock", "--calendar", "all-day", "--time", "19:30")
+        self.assertEqual(all_day["state"]["calendar"], "all-day")
+        priority = decode(self.capture("app://shell/lock", "--calendar", "all-day", "--time", "13:40")["output"])[2]
+        lengths = []
+        active = 0
+        for y in range(320, 800):
+            if priority[y * 480 + 32] == 255:
+                active += 1
+            elif active:
+                lengths.append(active)
+                active = 0
+        self.assertGreaterEqual(len(lengths), 2)
+
+
+
     def test_bluetooth_states(self):
         default = self.capture("app://shell/")
         self.assertEqual(default["state"]["bluetooth"], "connected")
@@ -288,6 +328,7 @@ class BuildCacheTest(unittest.TestCase):
             (native / "Main.cpp").write_text('#include "value.h"\nint main() { return VALUE; }\n')
             (native / "HostHardware.cpp").write_text("")
             (native / "HostBLE.cpp").write_text("")
+            (native / "HostCalendar.cpp").write_text("")
             (native / "FrameBuffer.cpp").write_text("")
             dependency = native / "value.h"
             dependency.write_text("#define VALUE 0\n")

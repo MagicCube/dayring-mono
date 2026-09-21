@@ -61,6 +61,8 @@ def source_files(target: str = "route") -> list[Path]:
         *ROOT.glob("src/platform/hal/services/*.cpp"),
         NATIVE / "HostBLE.cpp",
         *ROOT.glob("src/platform/time/services/*.cpp"),
+        *[path for path in ROOT.glob("src/platform/calendar/**/*.cpp") if path.name != "FatCalendarFiles.cpp"],
+        NATIVE / "HostCalendar.cpp",
         *ROOT.glob("src/platform/rpc/services/*.cpp"),
         *ROOT.glob("src/platform/rpc/*.cpp"),
         ROOT / "src/platform/hal/Frontlight.cpp",

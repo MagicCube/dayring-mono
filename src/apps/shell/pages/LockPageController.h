@@ -1,6 +1,8 @@
 #pragma once
 #include <cstdint>
+#include <vector>
 
+#include "../../../platform/calendar/UpcomingChanges.h"
 #include "../../../platform/ui/PageController.h"
 #include "LockPage.h"
 
@@ -12,11 +14,15 @@ class LockPageController final : public platform::ui::PageController {
     }
 
     void onEnter(std::string_view) override;
+    void onLeave() override;
     bool update() override;
     bool onInput(const platform::runtime::InputEvent&) override;
     void render(platform::ui::Canvas&, const platform::ui::Rect&) override;
 
    private:
+    bool _refreshCalendar();
+    std::vector<LockCalendarItem> _calendarItems;
+    bool _calendarDirty = true;
     uint64_t _minuteRevision = 0;
     LockPage _view;
     bool _samplePower(bool refreshPercent);
@@ -28,7 +34,12 @@ class LockPageController final : public platform::ui::PageController {
     uint8_t _percent = 0;
     bool _showUnlockHint = false;
     bool _hintChanged = false;
+    static constexpr uint32_t _hintDurationMs = 5000;
     uint32_t _hintShownAt = 0;
+    uint32_t _lastLockInteractionAt = 0;
+    bool _interactionSeen = false;
+    bool _touchPressed = false;
+    platform::calendar::UpcomingSubscription _calendarSubscription;
 };
 
 }  // namespace apps::shell::pages

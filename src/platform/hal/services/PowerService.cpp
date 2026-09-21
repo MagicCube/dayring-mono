@@ -2,6 +2,8 @@
 
 #include <Arduino.h>
 
+#include <algorithm>
+
 #include "../Hardware.h"
 
 namespace platform::power {
@@ -15,6 +17,7 @@ bool PowerService::start() {
     _running = true;
     _locked = false;
     _hasLocked = false;
+    _lockInteractionLightActive = false;
     _activateFrontlight();
     return true;
 }
@@ -41,8 +44,29 @@ void PowerService::notifyActivity() {
 
 void PowerService::notifyPowerConnectionChanged() {
     if (!_running || !_locked) return;
-    _lockedLightDurationMs = 5000;
+    const uint32_t elapsed = static_cast<uint32_t>(millis()) - _frontlightLastActivityMs;
+    const uint32_t remaining =
+        _lockInteractionLightActive && elapsed < _lockedLightDurationMs ? _lockedLightDurationMs - elapsed : 0;
+    _lockedLightDurationMs = std::max<uint32_t>(5000U, remaining);
     _activateFrontlight();
+}
+
+void PowerService::notifyLockInteraction() {
+    if (!_running || !_locked) return;
+    _lockedLightDurationMs = lockInteractionDurationMs;
+    _lockInteractionLightActive = true;
+    _activateFrontlight();
+}
+
+void PowerService::toggleLockedLight() {
+    if (!_running || !_locked) return;
+    _lockInteractionLightActive = false;
+    if (_frontlight.isOn()) {
+        _frontlight.turnOff();
+    } else {
+        _lockedLightDurationMs = lockInteractionDurationMs;
+        _activateFrontlight();
+    }
 }
 
 bool PowerService::isIdleLockDue() const {
@@ -54,6 +78,7 @@ bool PowerService::isIdleLockDue() const {
 void PowerService::setLocked(bool locked, LockReason reason) {
     if (!_running || _locked == locked) return;
     _locked = locked;
+    _lockInteractionLightActive = false;
     _lockedLightDurationMs = _frontlightLockTimeoutMs;
     if (!_locked) {
         _activateFrontlight();
@@ -72,7 +97,10 @@ void PowerService::_updateFrontlight() {
     const auto now = static_cast<uint32_t>(millis());
     const auto idleMs = static_cast<uint32_t>(now - _frontlightLastActivityMs);
     if (_locked) {
-        if (idleMs >= _lockedLightDurationMs) _frontlight.setBrightness(0);
+        if (idleMs >= _lockedLightDurationMs) {
+            _frontlight.setBrightness(0);
+            _lockInteractionLightActive = false;
+        }
         return;
     }
     if (idleMs >= _frontlightOffTimeoutMs) {

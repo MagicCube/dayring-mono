@@ -5,6 +5,7 @@
 
 #include "FrameBuffer.h"
 #include "HostBLE.h"
+#include "HostCalendar.h"
 #include "HostHardware.h"
 #include "apps/RegisterApplications.h"
 #include "platform/runtime/Shell.h"
@@ -86,7 +87,7 @@ bool number(std::string_view value, int maximum, uint8_t& out) {
     return true;
 }
 
-int capture(Shell& shell, char** argv, bool powerPress) {
+int capture(Shell& shell, char** argv, bool powerPress, uint8_t lockTaps) {
     uint8_t hour, minute, battery, charging;
     if (!number(argv[3], 23, hour) || !number(argv[4], 59, minute) || !number(argv[5], 100, battery) ||
         !number(argv[6], 1, charging))
@@ -107,6 +108,11 @@ int capture(Shell& shell, char** argv, bool powerPress) {
         shell.onInput({platform::runtime::InputEvent::Type::PowerPress});
         shell.update();
     }
+    if (lockTaps && !shell.isLocked()) return fail(2, "invalid_state", "Lock taps require a lock-screen route.");
+    for (uint8_t i = 0; i < lockTaps; ++i) {
+        shell.onInput({platform::runtime::InputEvent::Type::TouchRelease, 240, 400});
+        shell.update();
+    }
     if (!preview::hasFrame()) return fail(5, "missing_frame", "The render cycle submitted no frame.");
     return preview::writeFrame((",\"resolved_url\":" + jsonString(resolved)).c_str());
 }
@@ -117,10 +123,14 @@ int main(int argc, char** argv) {
     auto& shell = Shell::instance();
     if (!apps::registerApplications(shell)) return fail(5, "registration_failed", "Application registration failed.");
     if (argc == 2 && std::string_view(argv[1]) == "routes") return listRoutes(shell);
-    if ((argc == 7 || argc == 8 || argc == 9) && std::string_view(argv[1]) == "capture") {
-        if (!preview::configureBluetooth(argc == 9 ? argv[8] : "connected"))
+    if ((argc >= 7 && argc <= 11) && std::string_view(argv[1]) == "capture") {
+        if (!preview::configureBluetooth(argc >= 9 ? argv[8] : "connected"))
             return fail(2, "invalid_state", "Invalid Bluetooth state.");
-        return capture(shell, argv, argc >= 8 && std::string_view(argv[7]) == "1");
+        if (!preview::configureCalendar(argc >= 10 ? argv[9] : "empty"))
+            return fail(2, "invalid_state", "Invalid calendar scenario.");
+        uint8_t lockTaps = 0;
+        if (argc == 11 && !number(argv[10], 2, lockTaps)) return fail(2, "invalid_state", "Invalid lock tap count.");
+        return capture(shell, argv, argc >= 8 && std::string_view(argv[7]) == "1", lockTaps);
     }
     return fail(2, "invalid_arguments", "Use the tools/preview/preview launcher. The native protocol is internal.");
 }

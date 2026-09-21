@@ -37,7 +37,9 @@ struct AdminChecks {
         precondition(try! options("reboot").command == .reboot)
         precondition(try! options("reset-pairing", ["--mac-only"]).macOnly)
         precondition(try! Options(["dev-server", "--list"]).listOnly)
-        for arguments in [["reset-pairing"], ["reboot"], ["dev-server", "--mac-only"],
+        precondition(try! Options(["calendar", "--timeout", "60"]).command == .calendar)
+        for arguments in [["calendar", "--list"], ["calendar", "--connect-timeout", "10"],
+                          ["calendar", "--device", device.uuidString], ["reset-pairing"], ["reboot"], ["dev-server", "--mac-only"],
                           ["reboot", "--device", device.uuidString, "--mac-only"],
                           ["reset-pairing", "--device", device.uuidString, "--connect-only"],
                           ["reset-pairing", "--device", device.uuidString, "--list"],

@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "../../ble/services/BLEService.h"
+#include "../../calendar/services/CalendarService.h"
 #include "../../hal/services/FrontlightService.h"
 #include "../../hal/services/PowerService.h"
 #include "../../rpc/services/RPCService.h"
@@ -33,6 +34,9 @@ class ServiceManager {
     [[nodiscard]] time::TimeService& time();
     [[nodiscard]] const time::TimeService& time() const;
 
+    [[nodiscard]] calendar::CalendarService& calendar();
+    [[nodiscard]] const calendar::CalendarService& calendar() const;
+
     // Registration order is dependency order. Ownership transfers even on rejection.
     [[nodiscard]] bool add(std::unique_ptr<Service> service);
     [[nodiscard]] bool begin(std::uint32_t now = 0);
@@ -50,6 +54,7 @@ class ServiceManager {
     time::TimeService* _time;
     ble::BLEService* _ble;
     rpc::RPCService* _rpc;
+    calendar::CalendarService* _calendar;
     std::size_t _started = 0;
     bool _sealed = false;
     bool _transitioning = false;

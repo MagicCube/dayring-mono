@@ -25,7 +25,7 @@ Shell
     each Application owns PageControllers → state, Pages, child controllers/Views
     each Application owns Router/Navigation → borrowed PageController pointers
   owns ApplicationContainer → StatusBarController → StatusBar
-  owns ServiceManager → FrontlightService, PowerService, TaskDispatchService, BLEService, RPCService, DeviceControlService, TimeService
+  owns ServiceManager → FrontlightService, PowerService, TaskDispatchService, BLEService, RPCService, DeviceControlService, TimeService, CalendarService
 ```
 
 - Prefer values or `unique_ptr`; avoid ownership cycles. Controllers must outlive router/history use. Router/navigation destructors must not dereference controllers: derived Application members die before base members.

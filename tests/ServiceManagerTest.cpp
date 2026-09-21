@@ -38,6 +38,7 @@ class ProbeService final : public Service {
         assert(_manager.tasks().isRunning());
         assert(_manager.frontlight().isRunning() && _manager.power().isRunning() && _manager.time().isRunning());
         assert(_manager.ble().isRunning());
+        assert(_manager.calendar().isRunning());
         assert(_manager.ble().state() == platform::ble::BLEService::State::Unavailable);
         assert(!_manager.begin());
         _events.push_back(_id);
@@ -76,6 +77,7 @@ void orderedLifecycle() {
         ServiceManager manager;
         assert(!manager.isRunning());
         assert(!manager.tasks().isRunning());
+        assert(!manager.calendar().isRunning());
         assert(!manager.frontlight().isRunning() && !manager.power().isRunning() && !manager.time().isRunning());
         assert(!manager.add(nullptr));
         assert(manager.add(std::make_unique<ProbeService>(manager, events, 1, fail)));

@@ -1,7 +1,7 @@
 import DayringBLE
 import Foundation
 
-enum Command: String { case devServer = "dev-server", resetPairing = "reset-pairing", reboot }
+enum Command: String { case devServer = "dev-server", resetPairing = "reset-pairing", reboot, calendar }
 
 struct Options {
     let command: Command
@@ -16,12 +16,15 @@ struct Options {
 
     init(_ arguments: [String]) throws {
         guard let first = arguments.first, let command = Command(rawValue: first) else {
-            throw UsageError.invalid("Expected dev-server, reset-pairing or reboot command")
+            throw UsageError.invalid("Expected dev-server, calendar, reset-pairing or reboot command")
         }
         self.command = command
         var index = 1
         while index < arguments.count {
             let option = arguments[index]
+            if command == .calendar && option != "--timeout" {
+                throw UsageError.invalid("calendar accepts only --timeout SECONDS")
+            }
             if option == "--mac-only" { macOnly = true; index += 1; continue }
             if option == "--connect-only" { verifyPairing = false; index += 1; continue }
             if option == "--list" { listOnly = true; index += 1; continue }
@@ -42,8 +45,11 @@ struct Options {
             }
             index += 2
         }
-        if command != .devServer && (device == nil || listOnly || !verifyPairing || service != DeviceProfile.dayringServiceUUID) {
+        if (command == .resetPairing || command == .reboot) && (device == nil || listOnly || !verifyPairing || service != DeviceProfile.dayringServiceUUID) {
             throw UsageError.invalid("Administrative commands require --device UUID and the Dayring service; --list and --connect-only are not allowed")
+        }
+        if command == .calendar && (device != nil || listOnly || !verifyPairing || service != DeviceProfile.dayringServiceUUID) {
+            throw UsageError.invalid("calendar accepts only --timeout SECONDS and does not connect to Bluetooth")
         }
         if macOnly && command != .resetPairing { throw UsageError.invalid("--mac-only is valid only for reset-pairing") }
     }
@@ -56,6 +62,7 @@ Usage: dayring-cli
                         [--timeout SECONDS] [--connect-timeout SECONDS]
                         [--pair-timeout SECONDS] [--connect-only]
 
+       dayring-cli calendar [--timeout SECONDS]
        dayring-cli reset-pairing --device UUID [--mac-only] [--timeout SECONDS]
        dayring-cli reboot --device UUID [--timeout SECONDS]
 
@@ -65,6 +72,8 @@ reset-pairing  Clear ESP32 bonds over RPC, restart it, and forget this device on
 --mac-only     Recover a partial reset: forget only this exact macOS device without connecting to ESP32.
 reboot         Request an ESP32 software restart over RPC; retain pairing information.
 Stop any running dev-server before using either administrative command.
+
+calendar       Print the complete today/tomorrow JSON snapshot; request calendar permission, no Bluetooth.
 
 dev-server     Find a recognized peripheral, connect, verify its bond over an encrypted read, and hold until Ctrl-C.
 --connect-only  Verify service without requesting pairing (for other test peripherals).

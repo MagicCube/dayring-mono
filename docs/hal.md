@@ -27,8 +27,8 @@
 `src/platform/hal/services/PowerService.cpp` owns runtime timing and target-brightness policy and calls `frontlight::FrontlightService`; HAL `Frontlight.cpp` initializes the driver and 20% boot feedback before display initialization:
 
 - Boot/activity: 20%; idle: 10% at 52 seconds, off at 60 seconds. Shell applies idle lock when the foreground app permits it.
-- First manual lock: 20% for 10 seconds; later or automatic locks: off immediately. Automatic lock consumes the first-lock grace. Locked input/repeated locks do not extend it.
-- Unlock restores normal activity lighting/timing. A known external-power connection change lights a locked device for five seconds without unlocking; initial sampling does not.
+- First manual lock: 20% for 10 seconds; later or automatic locks: off immediately. Each accepted locked interaction lights at 20% for a fresh eight seconds via `notifyLockInteraction`; timing is wrap-safe. Automatic lock consumes the first-lock grace. Repeated lock requests do not extend the initial grace; explicit locked interactions use the separate eight-second window.
+- Unlock restores normal activity lighting/timing. A known external-power connection change lights a locked device for five seconds without unlocking; it does not shorten an active interaction light window. Initial sampling does not light the screen.
 
 ## Firmware upload
 

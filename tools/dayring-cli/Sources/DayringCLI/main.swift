@@ -14,8 +14,11 @@ catch {
     fputs("\(error)\n\(usage)\n", stderr)
     exit(2)
 }
+if options.command == .calendar { exit(runCalendarCommand(timeout: options.timeout)) }
 setbuf(stdout, nil)
 let central = BLECentral(profile: DeviceProfile(serviceUUID: options.service, peripheralID: options.device))
+let calendarRunner = options.command == .devServer && !options.listOnly && options.verifyPairing
+    ? CalendarRunner(central: central) : nil
 var finished = false
 var exitCode: Int32 = 0
 let pairingStore = options.command == .resetPairing ? MacPairingStore() : nil
@@ -46,7 +49,9 @@ central.onEvent = { event in
         fputs("Error: \(message)\n", stderr)
         exitCode = 1
         if let administration { administration.fail(message) } else { finished = true }
-    case .rpcReady(let id): administration?.rpcReady(identifier: id)
+    case .rpcReady(let id):
+        calendarRunner?.ready()
+        administration?.rpcReady(identifier: id)
     case .rpcStatus(let status): print(status)
     case .stopped: if administration == nil { finished = true }
     }
@@ -66,6 +71,7 @@ if !options.macOnly { central.start(listOnly: options.listOnly, scanTimeout: opt
 while !finished {
     RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.1))
     administration?.update()
+    calendarRunner?.update()
 }
 withExtendedLifetime(signals) {}
 exit(exitCode)
