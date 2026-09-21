@@ -37,32 +37,26 @@ void BatteryIndicatorView::render(platform::ui::Canvas& canvas, const platform::
     const Rect body{static_cast<int16_t>(bounds.right() - 40),
                     static_cast<int16_t>(bounds.y + (bounds.height - 20) / 2), 35, 20};
     const auto foreground = Paint::solid(props.theme == platform::ui::Theme::Dark ? Color::White : Color::Black);
-    const auto track = Paint::solid(Color::LightGray);
-    const int fillWidth = (35 * std::min<int>(props.percent, 100) + 50) / 100;
-    // Shared silhouette for both colors: no inset, outline, or rounded fill boundary.
+    const auto background = Paint::solid(props.theme == platform::ui::Theme::Dark ? Color::Black : Color::White);
+    constexpr int16_t border = 2;
+    constexpr int16_t interiorWidth = 35 - 2 * border;
+    const int fillWidth = (interiorWidth * std::min<int>(props.percent, 100) + 50) / 100;
     constexpr std::array<int16_t, 5> insets{3, 2, 1, 0, 0};
     for (int16_t row = 0; row < 20; ++row) {
         const int edge = std::min<int>(row, 19 - row);
         const int16_t inset = edge < 5 ? insets[edge] : 0;
-        const int16_t end = 35 - inset;
-        // Gray pixels are transparent in the BW adapter; provide their white substrate.
         canvas.fill({static_cast<int16_t>(body.x + inset), static_cast<int16_t>(body.y + row),
-                     static_cast<int16_t>(end - inset), 1},
-                    Paint::solid(Color::White));
-        const int16_t split = std::clamp<int>(fillWidth, inset, end);
-        if (split > inset)
-            canvas.fill({static_cast<int16_t>(body.x + inset), static_cast<int16_t>(body.y + row),
-                         static_cast<int16_t>(split - inset), 1},
-                        foreground);
-        if (end > split)
-            canvas.fill({static_cast<int16_t>(body.x + split), static_cast<int16_t>(body.y + row),
-                         static_cast<int16_t>(end - split), 1},
-                        track);
+                     static_cast<int16_t>(35 - 2 * inset), 1},
+                    foreground);
+        if (row < border || row >= 20 - border) continue;
+        const int16_t innerInset = std::max<int16_t>(border, inset + 1);
+        const int16_t emptyStart = std::clamp<int>(border + fillWidth, innerInset, 35 - innerInset);
+        if (emptyStart < 35 - innerInset)
+            canvas.fill({static_cast<int16_t>(body.x + emptyStart), static_cast<int16_t>(body.y + row),
+                         static_cast<int16_t>(35 - innerInset - emptyStart), 1},
+                        background);
     }
-    canvas.fill({static_cast<int16_t>(body.right() + 2), static_cast<int16_t>(body.y + 6), 3, 8},
-                Paint::solid(Color::White), 1);
-    canvas.fill({static_cast<int16_t>(body.right() + 2), static_cast<int16_t>(body.y + 6), 3, 8},
-                props.percent >= 100 ? foreground : track, 1);
+    canvas.fill({static_cast<int16_t>(body.right() + 2), static_cast<int16_t>(body.y + 6), 3, 8}, foreground, 1);
     if (props.charging) drawBolt(canvas, body);
 }
 
