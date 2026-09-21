@@ -41,15 +41,20 @@ void LockPage::render(platform::ui::Canvas& canvas, const platform::ui::Rect& bo
     snprintf(date, sizeof(date), "%s %u %s", weekdays[props.weekday % 7], static_cast<unsigned>(props.day),
              months[props.month >= 1 && props.month <= 12 ? props.month - 1 : 0]);
     constexpr auto dateFont = platform::fonts::fontId(platform::fonts::Font::RobotoL);
-    const platform::ui::Rect dateBounds{bounds.x, static_cast<int16_t>(bounds.y + 40), bounds.width,
-                                        gridLineHeight(canvas, dateFont)};
-    canvas.text(dateBounds, date,
-                {.font = dateFont, .align = freeink::ui::TextAlign::Center, .color = freeink::ui::Color::White});
     constexpr auto font = platform::fonts::fontId(platform::fonts::Font::NDot120);
-    // Round line boxes up so font metrics do not introduce off-grid spacing.
-    const platform::ui::Rect timeBounds{bounds.x, static_cast<int16_t>(dateBounds.y + dateBounds.height + 8),
-                                        bounds.width, gridLineHeight(canvas, font)};
-    canvas.text(timeBounds, time,
+    constexpr auto statusFont = platform::fonts::fontId(platform::fonts::Font::RobotoM);
+    freeink::ui::Stack<3> header(
+        {bounds.x, static_cast<int16_t>(bounds.y + 40), bounds.width,
+         static_cast<int16_t>(gridLineHeight(canvas, dateFont) + 8 + gridLineHeight(canvas, font) + 16 +
+                              gridLineHeight(canvas, statusFont))},
+        freeink::ui::Axis::Column, 8);
+    header.fixed(gridLineHeight(canvas, dateFont));
+    header.fixed(gridLineHeight(canvas, font));
+    header.fixed(gridLineHeight(canvas, statusFont));
+    header.layout();
+    canvas.text(header.rect(0), date,
+                {.font = dateFont, .align = freeink::ui::TextAlign::Center, .color = freeink::ui::Color::White});
+    canvas.text(header.rect(1), time,
                 {.font = font, .align = freeink::ui::TextAlign::Center, .color = freeink::ui::Color::White});
     _renderCalendar(canvas, bounds, props);
     if (!props.showUnlockHint && !props.charging) return;
@@ -63,8 +68,7 @@ void LockPage::render(platform::ui::Canvas& canvas, const platform::ui::Rect& bo
     }
     constexpr auto chargingFont = platform::fonts::fontId(platform::fonts::Font::RobotoM);
     // Keep layout spacing on the four-pixel grid independently of font glyph insets.
-    const platform::ui::Rect chargingBounds{bounds.x, static_cast<int16_t>(timeBounds.y + timeBounds.height + 16),
-                                            bounds.width, gridLineHeight(canvas, chargingFont)};
+    const platform::ui::Rect chargingBounds = header.rect(2);
     canvas.text(
         chargingBounds, charging,
         {.font = chargingFont, .align = freeink::ui::TextAlign::Center, .color = freeink::ui::Color::LightGray});
@@ -77,40 +81,52 @@ void LockPage::_renderCalendar(platform::ui::Canvas& canvas, const platform::ui:
     using platform::fonts::fontId;
     const size_t count = std::min(size_t{3}, props.events.size());
     if (count == 0) return;
-    constexpr int16_t sideInset = 32, lineGap = 4, itemGap = 4, groupGap = 16, groupBottom = 4;
+
+    constexpr int16_t sideInset = 32, itemGap = 4, groupGap = 16, groupBottom = 4;
     constexpr int16_t calendarBottomInset = 24;
     const int16_t titleHeight = gridLineHeight(canvas, fontId(Font::RobotoL));
     const int16_t detailHeight = gridLineHeight(canvas, fontId(Font::RobotoM));
     const int16_t labelHeight = gridLineHeight(canvas, fontId(Font::RobotoS));
-    const int16_t itemHeight = titleHeight + lineGap + detailHeight;
+    const int16_t itemHeight = titleHeight + 4 + detailHeight;
     const auto events = props.events.first(count);
-    int16_t contentHeight = 0;
+    size_t firstTomorrow = count;
     for (size_t i = 0; i < count; ++i) {
-        const bool newGroup = i == 0 || events[i].isTomorrow != events[i - 1].isTomorrow;
-        contentHeight += newGroup ? labelHeight + groupBottom + (i == 0 ? 0 : groupGap) : itemGap;
-        contentHeight += itemHeight;
-    }
-    int16_t y = bounds.y + bounds.height - calendarBottomInset - contentHeight;
-    for (size_t i = 0; i < count; ++i) {
-        const auto& event = events[i];
-        const bool newGroup = i == 0 || event.isTomorrow != events[i - 1].isTomorrow;
-        if (newGroup) {
-            if (i != 0) y += groupGap;
-            canvas.text({static_cast<int16_t>(bounds.x + sideInset), y,
-                         static_cast<int16_t>(bounds.width - 2 * sideInset), labelHeight},
-                        event.isTomorrow ? "Tomorrow" : "Upcoming",
-                        {.font = fontId(Font::RobotoS), .color = Color::LightGray});
-            y += labelHeight + groupBottom;
-        } else {
-            y += itemGap;
+        if (events[i].isTomorrow) {
+            firstTomorrow = i;
+            break;
         }
-        const int16_t rowHeight = itemHeight;
-        calendarRow(canvas,
-                    {static_cast<int16_t>(bounds.x + sideInset), y, static_cast<int16_t>(bounds.width - 2 * sideInset),
-                     rowHeight},
-                    event, titleHeight, detailHeight);
-        y += rowHeight;
     }
+    const auto groupHeight = [&](size_t begin, size_t end) {
+        if (begin >= end) return int16_t{0};
+        return static_cast<int16_t>(labelHeight + groupBottom + (end - begin) * itemHeight +
+                                    (end - begin > 1 ? (end - begin - 1) * itemGap : 0));
+    };
+    const int16_t upcomingHeight = groupHeight(0, firstTomorrow);
+    const int16_t tomorrowHeight = groupHeight(firstTomorrow, count);
+    const int16_t totalHeight =
+        static_cast<int16_t>(upcomingHeight + tomorrowHeight + (upcomingHeight && tomorrowHeight ? groupGap : 0));
+    Stack<2> groups({static_cast<int16_t>(bounds.x + sideInset),
+                     static_cast<int16_t>(bounds.y + bounds.height - calendarBottomInset - totalHeight),
+                     static_cast<int16_t>(bounds.width - 2 * sideInset), totalHeight},
+                    Axis::Column, groupGap);
+    if (upcomingHeight) groups.fixed(upcomingHeight);
+    if (tomorrowHeight) groups.fixed(tomorrowHeight);
+    groups.layout();
+
+    const auto renderGroup = [&](Rect groupBounds, size_t begin, size_t end, const char* label) {
+        if (begin >= end) return;
+        Stack<4> rows(groupBounds, Axis::Column, itemGap);
+        rows.fixed(labelHeight);
+        for (size_t i = begin; i < end; ++i) rows.fixed(itemHeight);
+        rows.layout();
+        canvas.text(rows.rect(0), label, {.font = fontId(Font::RobotoS), .color = Color::LightGray});
+        for (size_t i = begin; i < end; ++i)
+            calendarRow(canvas, rows.rect(static_cast<uint8_t>(i - begin + 1)), events[i], titleHeight, detailHeight);
+    };
+
+    uint8_t groupIndex = 0;
+    if (upcomingHeight) renderGroup(groups.rect(groupIndex++), 0, firstTomorrow, "Upcoming");
+    if (tomorrowHeight) renderGroup(groups.rect(groupIndex), firstTomorrow, count, "Tomorrow");
 }
 
 }  // namespace apps::shell::pages
