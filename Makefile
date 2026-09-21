@@ -17,7 +17,7 @@ TIME_SOURCES := src/platform/time/services/TimeService.cpp $(RPC_SOURCES)
 HOST_UI_FLAGS := -isystem freeink-sdk/libs/hardware/Rtc/include -Isrc -Itests/stubs -isystem freeink-sdk/libs/ui/FreeInkUI/include
 
 .DEFAULT_GOAL := build
-.PHONY: format build upload monitor test test-application-manager test-shell test-navigation test-home-entry test-shell-facade test-power-service test-board-startup
+.PHONY: format build upload monitor dev-server test test-application-manager test-shell test-navigation test-home-entry test-shell-facade test-power-service test-board-startup
 
 format:
 	@command -v "$(CLANG_FORMAT)" >/dev/null 2>&1 || { \
@@ -34,6 +34,9 @@ upload: format
 
 monitor:
 	$(PIO) device monitor -e $(ENV)
+
+dev-server:
+	./tools/dayring-cli/dayring-cli dev-server
 
 test: test-application-manager test-shell test-navigation test-home-entry test-shell-facade test-power-service test-board-startup
 

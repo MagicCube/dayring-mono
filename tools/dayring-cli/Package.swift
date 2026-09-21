@@ -4,11 +4,11 @@ import Foundation
 
 let packageRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().path
 let package = Package(
-    name: "DayringBLE",
+    name: "DayringCLI",
     platforms: [.macOS(.v13), .iOS(.v16)],
     products: [
         .library(name: "DayringBLE", targets: ["DayringBLE"]),
-        .executable(name: "dayring-ble", targets: ["DayringCLI"]),
+        .executable(name: "dayring-cli", targets: ["DayringCLI"]),
     ],
     targets: [
         .target(name: "DayringBLE"),

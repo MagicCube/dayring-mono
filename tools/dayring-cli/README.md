@@ -1,4 +1,4 @@
-# Dayring BLE Central
+# Dayring CLI
 
 A development-only macOS CLI and reusable Swift Core Bluetooth library. Requires Xcode command-line tools with Swift 5.9 or later and macOS 13+. The library supports iOS 16+; the CLI is macOS-only.
 
@@ -7,19 +7,20 @@ A development-only macOS CLI and reusable Swift Core Bluetooth library. Requires
 From the repository root:
 
 ```sh
-./tools/ble-central/ble
-./tools/ble-central/ble --help
-./tools/ble-central/ble scan --list --timeout 10
-./tools/ble-central/ble scan
-./tools/ble-central/ble scan --device 00000000-0000-0000-0000-000000000000
-./tools/ble-central/ble scan --service B86E1000-7C65-4DAB-9F21-6A57D2E84010
+make dev-server
+./tools/dayring-cli/dayring-cli
+./tools/dayring-cli/dayring-cli --help
+./tools/dayring-cli/dayring-cli dev-server --list --timeout 10
+./tools/dayring-cli/dayring-cli dev-server
+./tools/dayring-cli/dayring-cli dev-server --device 00000000-0000-0000-0000-000000000000
+./tools/dayring-cli/dayring-cli dev-server --service B86E1000-7C65-4DAB-9F21-6A57D2E84010
 ```
 
-Running `./tools/ble-central/ble` without arguments defaults to `scan`. Use `--help` or `-h` to display help.
+Running `./tools/dayring-cli/dayring-cli` without arguments defaults to `dev-server`. Use `--help` or `-h` to display help.
 
-`scan` connects to the first connectable advertisement containing the configured service UUID, optionally restricted by the Core Bluetooth peripheral identifier. It then discovers that service, reads the encrypted pairing-status characteristic, verifies the peripheral reports a stored bond, and holds the connection until Ctrl-C, termination, or an unrecoverable Bluetooth failure. RPC handshake/write failures and unexpected disconnections retry the same peripheral up to twice, after one and two seconds. Each retry rediscovers GATT and repeats encrypted bond verification and RPC hello; successful hello resets the retry budget. Outstanding application requests fail instead of being replayed. Use `--device` when multiple development boards advertise the same service. Identifiers are Core Bluetooth UUIDs, not Bluetooth MAC addresses.
+`dev-server` connects to the first connectable advertisement containing the configured service UUID, optionally restricted by the Core Bluetooth peripheral identifier. It then discovers that service, reads the encrypted pairing-status characteristic, verifies the peripheral reports a stored bond, and holds the connection until Ctrl-C, termination, or an unrecoverable Bluetooth failure. RPC handshake/write failures and unexpected disconnections retry the same peripheral up to twice, after one and two seconds. Each retry rediscovers GATT and repeats encrypted bond verification and RPC hello; successful hello resets the retry budget. Outstanding application requests fail instead of being replayed. Use `--device` when multiple development boards advertise the same service. Identifiers are Core Bluetooth UUIDs, not Bluetooth MAC addresses.
 
-`scan --list` lists nearby advertisements without connecting, marks recognized advertisements with MATCH, and exits successfully after the scan timeout. Discovery is deduplicated by peripheral identifier. Names and RSSI are diagnostic only. The CLI does not connect based on a matching name.
+`dev-server --list` lists nearby advertisements without connecting, marks recognized advertisements with MATCH, and exits successfully after the scan timeout. Discovery is deduplicated by peripheral identifier. Names and RSSI are diagnostic only. The CLI does not connect based on a matching name.
 
 Startup and scanning each have a bounded `--timeout` (default 20 seconds). Connection, service discovery and subscription each use `--connect-timeout` (default 15 seconds). RPC hello and write acknowledgments retain five-second deadlines. Pairing has a `--pair-timeout` (default 60 seconds). Use `--connect-only` to skip the Dayring-specific pairing check for other test peripherals. Exit codes are 0 for intentional stop/list completion, 1 for Bluetooth failure, scan timeout or exhausted connection recovery, and 2 for argument errors.
 
@@ -47,8 +48,8 @@ Central/peripheral roles determine connection initiation, not RPC direction. RPC
 ## Validation
 
 ```sh
-swift test --package-path tools/ble-central --scratch-path .cache/ble-central
-./tools/ble-central/ble --help
+swift test --package-path tools/dayring-cli --scratch-path .cache/dayring-cli
+./tools/dayring-cli/dayring-cli --help
 ```
 
 Automated tests cover service recognition, optional peripheral selection, bounded retry/backoff, and stale handshake cancellation during stop or GATT rediscovery. Real-radio validation requires a BLE peripheral: verify list-only discovery, service-filtered connect, service validation, timeout, Ctrl-C, remote disconnect, Bluetooth disabled, and permission denial. The user verified Dayring pairing, automatic setup completion, and encrypted reconnection after a device restart with the bond retained. On iOS, also compile the library in the app target and validate permissions on a physical device.

@@ -1,4 +1,0 @@
-#!/bin/sh
-set -eu
-package_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-exec swift run --package-path "$package_dir" --scratch-path "$package_dir/../../.cache/ble-central" dayring-ble "$@"

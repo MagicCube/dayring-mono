@@ -13,7 +13,7 @@ ServiceManager starts `Frontlight → Power → TaskDispatch → BLE → RPC →
 | NimBLE write/notify GATT and host event dispatch | `src/platform/ble/services/BLEService.cpp` |
 | RTC and synchronization, timezone state | `src/platform/time/services/TimeService.*`, `ClockSample.h` |
 | RTC writes on the application loop | `src/platform/hal/RtcClock.cpp`, `setClockTime` |
-| Reusable Apple RPC endpoint | `tools/ble-central/Sources/DayringBLE/RPCPeer.swift` |
+| Reusable Apple RPC endpoint | `tools/dayring-cli/Sources/DayringBLE/RPCPeer.swift` |
 | Core Bluetooth adapter and automatic clock provider | `BLECentral+RPC.swift`, `ClockSample.swift`, `TimeZoneMonitor.swift` |
 
 NimBLE callbacks only copy packets into bounded queues or transmit on the host event queue. They never run RPC handlers, access the scheduler, or write RTC/I2C. RPCService owns one 10 ms periodic TaskDispatch task, processes at most four inbound packets per execution, and bounds outstanding requests to eight. Handlers and completions execute on the application loop and must be short/nonblocking; received spans are borrowed only for the callback duration. There is no independent TimeSyncService.
@@ -82,7 +82,7 @@ The Apple peer snapshots the timezone when answering clock.get, and serves timez
 - Swift package tests cover matching wire vectors, bidirectional RPC, timeout/disconnect behavior, clock encoding, timezone travel/DST and retry.
 - `make test` covers the integrated service graph and existing UI/runtime behavior. Compile the shared Swift sources for iOS as well.
 
-On hardware, run `./tools/ble-central/ble scan`. Require PAIRED, RPC ready, RPC ping succeeded, Clock sample served, and RTC synchronized with a device readback. The CLI retains the connection for periodic sync. The eight-hour boundary is tested with a simulated monotonic clock rather than an eight-hour wall-clock wait.
+On hardware, run `./tools/dayring-cli/dayring-cli dev-server`. Require PAIRED, RPC ready, RPC ping succeeded, Clock sample served, and RTC synchronized with a device readback. The CLI retains the connection for periodic sync. The eight-hour boundary is tested with a simulated monotonic clock rather than an eight-hour wall-clock wait.
 
 Physical verification on 2026-09-21 passed on the paired PaperMono and macOS CLI: RPC hello, ping, device-initiated clock/timezone fetch (Asia/Shanghai), and RTC readback `2026-09-21 11:03:35`, UTC offset `28800`. Final firmware was uploaded through the existing preparation hook. No system timezone setting was changed during testing.
 

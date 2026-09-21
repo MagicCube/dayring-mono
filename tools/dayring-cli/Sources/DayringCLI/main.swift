@@ -12,7 +12,7 @@ struct Options {
     var connectTimeout: TimeInterval = 15
 
     init(_ arguments: [String]) throws {
-        guard arguments.first == "scan" else { throw UsageError.invalid("Expected scan command") }
+        guard arguments.first == "dev-server" else { throw UsageError.invalid("Expected dev-server command") }
         var index = 1
         while index < arguments.count {
             let option = arguments[index]
@@ -40,14 +40,14 @@ struct Options {
 
 enum UsageError: Error { case invalid(String) }
 let usage = """
-Usage: dayring-ble
-       dayring-ble scan [--list] [--service UUID] [--device UUID]
+Usage: dayring-cli
+       dayring-cli dev-server [--list] [--service UUID] [--device UUID]
                         [--timeout SECONDS] [--connect-timeout SECONDS]
                         [--pair-timeout SECONDS] [--connect-only]
 
-No arguments defaults to scan. Use --help or -h for this help.
+No arguments defaults to dev-server. Use --help or -h for this help.
 
-scan     Find a recognized peripheral, connect, verify its bond over an encrypted read, and hold until Ctrl-C.
+dev-server     Find a recognized peripheral, connect, verify its bond over an encrypted read, and hold until Ctrl-C.
 --connect-only  Verify service without requesting pairing (for other test peripherals).
 --list   List nearby advertisements without connecting; exit after the scan timeout.
 Default service: \(DeviceProfile.dayringServiceUUID)
@@ -60,7 +60,7 @@ if arguments == ["--help"] || arguments == ["-h"] {
     exit(0)
 }
 let options: Options
-do { options = try Options(arguments.isEmpty ? ["scan"] : arguments) }
+do { options = try Options(arguments.isEmpty ? ["dev-server"] : arguments) }
 catch {
     fputs("\(error)\n\(usage)\n", stderr)
     exit(2)

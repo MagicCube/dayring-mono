@@ -8,9 +8,9 @@
 | Peripheral host, advertising, SMP, encrypted status, lifecycle | `src/platform/ble/services/BLEService.cpp` |
 | Public state and stored bond count | `src/platform/ble/services/BLEService.h` |
 | Firmware service and status UUIDs | `src/platform/ble/BLEProfile.h` |
-| Shared Apple central | `tools/ble-central/Sources/DayringBLE/BLECentral.swift` |
-| Apple UUIDs and status response | `tools/ble-central/Sources/DayringBLE/DeviceProfile.swift` |
-| Development CLI | `tools/ble-central/README.md` |
+| Shared Apple central | `tools/dayring-cli/Sources/DayringBLE/BLECentral.swift` |
+| Apple UUIDs and status response | `tools/dayring-cli/Sources/DayringBLE/DeviceProfile.swift` |
+| Development CLI | `tools/dayring-cli/README.md` |
 
 ## Lifecycle
 
@@ -36,7 +36,7 @@ RPC and clock/timezone synchronization are documented in [RPC](rpc.md). Applicat
 
 ```sh
 make test-ble-service test-service-manager
-swift test --package-path tools/ble-central --scratch-path .cache/ble-central
+swift test --package-path tools/dayring-cli --scratch-path .cache/dayring-cli
 .pio-core/penv/bin/python -m platformio run -e papermono
 ```
 
@@ -45,7 +45,7 @@ BLEServiceTest executes the firmware branch against a simulated NimBLE API. It v
 For hardware acceptance:
 
 1. Connect the PaperMono by USB and upload using the existing firmware upload hook (`make upload`). Preserve NVS.
-2. Run `./tools/ble-central/ble scan --pair-timeout 60`. Accept any macOS pairing prompt.
+2. Run `./tools/dayring-cli/dayring-cli dev-server --pair-timeout 60`. Accept any macOS pairing prompt.
 3. Require `PAIRED`, not merely `Connected` or `Service verified`.
 4. Ctrl-C, reconnect, and require `PAIRED` again.
 5. Power-cycle the board without erasing flash, reconnect, and require `PAIRED` without repeating first-time pairing. This is the persistence check.
