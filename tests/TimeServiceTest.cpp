@@ -19,6 +19,11 @@ unsigned long millis() {
 
 namespace platform::hal {
 
+bool setClockTime(const Rtc::DateTime& value) {
+    rtcValue = value;
+    return true;
+}
+
 Rtc::DateTime clockTime() {
     ++reads;
     return rtcValue;

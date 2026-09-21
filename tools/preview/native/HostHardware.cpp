@@ -62,6 +62,11 @@ void refreshDisplay() {
     submitted = true;
 }
 
+bool setClockTime(const Rtc::DateTime& value) {
+    clockValue = value;
+    return true;
+}
+
 Rtc::DateTime clockTime() {
     return clockValue;
 }

@@ -40,9 +40,12 @@ struct Options {
 
 enum UsageError: Error { case invalid(String) }
 let usage = """
-Usage: dayring-ble scan [--list] [--service UUID] [--device UUID]
+Usage: dayring-ble
+       dayring-ble scan [--list] [--service UUID] [--device UUID]
                         [--timeout SECONDS] [--connect-timeout SECONDS]
                         [--pair-timeout SECONDS] [--connect-only]
+
+No arguments defaults to scan. Use --help or -h for this help.
 
 scan     Find a recognized peripheral, connect, verify its bond over an encrypted read, and hold until Ctrl-C.
 --connect-only  Verify service without requesting pairing (for other test peripherals).
@@ -52,12 +55,12 @@ Default scan/startup timeout: 20s; connection/service discovery timeout: 15s eac
 Exit codes: 0 stopped/list complete, 1 BLE failure/disconnection, 2 invalid arguments.
 """
 let arguments = Array(CommandLine.arguments.dropFirst())
-if arguments.isEmpty || arguments == ["--help"] || arguments == ["-h"] {
+if arguments == ["--help"] || arguments == ["-h"] {
     print(usage)
     exit(0)
 }
 let options: Options
-do { options = try Options(arguments) }
+do { options = try Options(arguments.isEmpty ? ["scan"] : arguments) }
 catch {
     fputs("\(error)\n\(usage)\n", stderr)
     exit(2)
@@ -84,6 +87,7 @@ central.onEvent = { event in
         fputs("Error: \(message)\n", stderr)
         exitCode = 1
         finished = true
+    case .rpcStatus(let status): print(status)
     case .stopped: finished = true
     }
 }

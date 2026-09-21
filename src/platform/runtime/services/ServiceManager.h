@@ -6,6 +6,7 @@
 #include "../../ble/services/BLEService.h"
 #include "../../hal/services/FrontlightService.h"
 #include "../../hal/services/PowerService.h"
+#include "../../rpc/services/RPCService.h"
 #include "../../tasking/services/TaskDispatchService.h"
 #include "../../time/services/TimeService.h"
 #include "Service.h"
@@ -21,6 +22,8 @@ class ServiceManager {
     ServiceManager(ServiceManager&&) = delete;
     ServiceManager& operator=(ServiceManager&&) = delete;
 
+    [[nodiscard]] rpc::RPCService& rpc();
+    [[nodiscard]] const rpc::RPCService& rpc() const;
     [[nodiscard]] ble::BLEService& ble();
     [[nodiscard]] const ble::BLEService& ble() const;
     [[nodiscard]] frontlight::FrontlightService& frontlight();
@@ -46,6 +49,7 @@ class ServiceManager {
     tasking::TaskDispatchService* _tasks;
     time::TimeService* _time;
     ble::BLEService* _ble;
+    rpc::RPCService* _rpc;
     std::size_t _started = 0;
     bool _sealed = false;
     bool _transitioning = false;

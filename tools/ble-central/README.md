@@ -7,6 +7,7 @@ A development-only macOS CLI and reusable Swift Core Bluetooth library. Requires
 From the repository root:
 
 ```sh
+./tools/ble-central/ble
 ./tools/ble-central/ble --help
 ./tools/ble-central/ble scan --list --timeout 10
 ./tools/ble-central/ble scan
@@ -14,11 +15,13 @@ From the repository root:
 ./tools/ble-central/ble scan --service B86E1000-7C65-4DAB-9F21-6A57D2E84010
 ```
 
-`scan` connects to the first connectable advertisement containing the configured service UUID, optionally restricted by the Core Bluetooth peripheral identifier. It then discovers that service, reads the encrypted pairing-status characteristic, verifies the peripheral reports a stored bond, and holds the connection until Ctrl-C, termination, Bluetooth failure, or disconnection. It does not retry automatically. Use `--device` when multiple development boards advertise the same service. Identifiers are Core Bluetooth UUIDs, not Bluetooth MAC addresses.
+Running `./tools/ble-central/ble` without arguments defaults to `scan`. Use `--help` or `-h` to display help.
+
+`scan` connects to the first connectable advertisement containing the configured service UUID, optionally restricted by the Core Bluetooth peripheral identifier. It then discovers that service, reads the encrypted pairing-status characteristic, verifies the peripheral reports a stored bond, and holds the connection until Ctrl-C, termination, or an unrecoverable Bluetooth failure. RPC handshake/write failures and unexpected disconnections retry the same peripheral up to twice, after one and two seconds. Each retry rediscovers GATT and repeats encrypted bond verification and RPC hello; successful hello resets the retry budget. Outstanding application requests fail instead of being replayed. Use `--device` when multiple development boards advertise the same service. Identifiers are Core Bluetooth UUIDs, not Bluetooth MAC addresses.
 
 `scan --list` lists nearby advertisements without connecting, marks recognized advertisements with MATCH, and exits successfully after the scan timeout. Discovery is deduplicated by peripheral identifier. Names and RSSI are diagnostic only. The CLI does not connect based on a matching name.
 
-Startup and scanning each have a bounded `--timeout` (default 20 seconds). Connection and service discovery each have a bounded `--connect-timeout` (default 15 seconds). Pairing has a `--pair-timeout` (default 60 seconds). Use `--connect-only` to skip the Dayring-specific pairing check for other test peripherals. Exit codes are 0 for intentional stop/list completion, 1 for Bluetooth failure, scan timeout or remote disconnection, and 2 for argument errors.
+Startup and scanning each have a bounded `--timeout` (default 20 seconds). Connection, service discovery and subscription each use `--connect-timeout` (default 15 seconds). RPC hello and write acknowledgments retain five-second deadlines. Pairing has a `--pair-timeout` (default 60 seconds). Use `--connect-only` to skip the Dayring-specific pairing check for other test peripherals. Exit codes are 0 for intentional stop/list completion, 1 for Bluetooth failure, scan timeout or exhausted connection recovery, and 2 for argument errors.
 
 macOS may ask for Bluetooth access on the first actual scan. The executable embeds Info.plist with NSBluetoothAlwaysUsageDescription. Enable Bluetooth and grant access to the requesting CLI/terminal host in System Settings > Privacy & Security > Bluetooth if necessary. Help and argument validation do not initialize Bluetooth.
 
@@ -26,19 +29,20 @@ macOS may ask for Bluetooth access on the first actual scan. The executable embe
 
 - `DayringBLE/DeviceProfile.swift`: service identity, optional device selection, and typed events.
 - `DayringBLE/BLECentral.swift`: owns CBCentralManager, retains the active CBPeripheral, bounds operations, validates service discovery, and cancels work on stop.
+- `DayringBLE/BLECentral+Recovery.swift`: cancels the failed connection and schedules bounded reconnects; `ConnectionRecovery.swift` owns the retry budget.
 - `DayringCLI/main.swift`: argument parsing, output, signals, process lifetime and exit status.
 
 Create, start and stop BLECentral on the main queue. Its delegate callbacks and onEvent closure run on the main queue. Retain the central for the session, call stop before releasing it, and use weak captures when an owner installs an event handler. Consume events without synchronously restarting the central from a callback; schedule a new session on the main queue instead.
 
-An iOS app can add this directory as a local Swift package and link only the DayringBLE library product. Its own Info.plist must provide NSBluetoothAlwaysUsageDescription. UIKit/SwiftUI, terminal output, process exit, and Unix signals are not dependencies of the library. Background restoration and reconnect policy are future work, not guaranteed by this foreground implementation.
+An iOS app can add this directory as a local Swift package and link only the DayringBLE library product. Its own Info.plist must provide NSBluetoothAlwaysUsageDescription. UIKit/SwiftUI, terminal output, process exit, and Unix signals are not dependencies of the library. Automatic reconnect runs only while the foreground process is alive; iOS background restoration is not implemented.
 
 ## Initial firmware contract
 
 The development service UUID is **B86E1000-7C65-4DAB-9F21-6A57D2E84010**. Firmware must advertise it in connectable advertising and expose it as a GATT service. BLEService implements this service and the encrypted status characteristic `B86E1001-7C65-4DAB-9F21-6A57D2E84010`. `--service` permits another full 128-bit UUID for experiments.
 
-Recognized advertisement, connected link, verified service, secure pairing, application authorization and RPC readiness are distinct states. The tool verifies an encrypted read and the peripheral-reported stored bond; application authorization and RPC are not implemented. An advertised UUID is not authentication. It does not inspect the system bond list or automatically trust ownership.
+Recognized advertisement, connected link, verified service, secure pairing, application authorization and RPC readiness are distinct states. The tool verifies an encrypted read and the peripheral-reported stored bond; application authorization is not implemented. RPC starts after subscription and an application-level readiness handshake. An advertised UUID is not authentication. It does not inspect the system bond list or automatically trust ownership.
 
-Central/peripheral roles determine connection initiation, not RPC direction. The next stage can carry central-to-peripheral frames using characteristic writes and peripheral-to-central frames using notifications. A separate RPC layer should own framing, request identifiers, responses, deadlines and authorization; BLECentral should own the link. The pairing-status characteristic is independent of the future RPC wire format. See [firmware pairing contract](../../docs/ble.md).
+Central/peripheral roles determine connection initiation, not RPC direction. RPC carries central-to-peripheral frames using characteristic writes and peripheral-to-central frames using notifications. RPCPeer owns framing, request identifiers, responses and deadlines; BLECentral owns the link. Application authorization remains separate. The pairing-status characteristic is independent of the RPC wire format. See [firmware pairing contract](../../docs/ble.md).
 
 ## Validation
 
@@ -47,6 +51,14 @@ swift test --package-path tools/ble-central --scratch-path .cache/ble-central
 ./tools/ble-central/ble --help
 ```
 
-Automated tests cover service recognition and optional peripheral selection. Real-radio validation requires a BLE peripheral: verify list-only discovery, service-filtered connect, service validation, timeout, Ctrl-C, remote disconnect, Bluetooth disabled, and permission denial. The user verified Dayring pairing, automatic setup completion, and encrypted reconnection after a device restart with the bond retained. On iOS, also compile the library in the app target and validate permissions on a physical device.
+Automated tests cover service recognition, optional peripheral selection, bounded retry/backoff, and stale handshake cancellation during stop or GATT rediscovery. Real-radio validation requires a BLE peripheral: verify list-only discovery, service-filtered connect, service validation, timeout, Ctrl-C, remote disconnect, Bluetooth disabled, and permission denial. The user verified Dayring pairing, automatic setup completion, and encrypted reconnection after a device restart with the bond retained. On iOS, also compile the library in the app target and validate permissions on a physical device.
 
 References: [Apple central delegate lifecycle](https://developer.apple.com/documentation/corebluetooth/cbcentralmanagerdelegate), [Bluetooth usage description](https://developer.apple.com/documentation/bundleresources/information-property-list/nsbluetoothalwaysusagedescription).
+
+## RPC and time synchronization
+
+After pairing, the CLI subscribes to RPC notifications, completes hello, verifies ping, and answers device-initiated clock/timezone requests using this computer's current time and IANA timezone. A device RTC readback is printed after the sample is transferred. The device requests time immediately on each ready session and every eight hours after successful synchronization. Keep the CLI running to maintain the connection.
+
+Timezone identifiers and current offsets are monitored every ten seconds while the peer is active. Travel and DST changes notify the device to resynchronize; the paired device does not have to wait eight hours. Timezone settings and synchronization timestamps are currently RAM-only on ESP32. Suspended iOS apps cannot promise continuous background service; reconnect/resume refreshes the current state.
+
+`RPCPeer` provides reusable bidirectional requests, handlers, timeouts and cancellation. `BLECentral.requestRPC`, `cancelRPC`, and `registerRPCHandler` expose it through BLE. Custom method IDs start at 6. The small-message wire contract, GATT UUIDs, capacity bounds and service ownership are in [RPC and time](../../docs/rpc.md).

@@ -35,10 +35,12 @@ HAL `begin()` initializes the dedicated USB CDC control channel without waiting 
 
 `tools/platformio-firmware-update/platformio-firmware-update.py` retries preparation because opening native USB can reset the board. Before recognition, missing support/serial errors allow normal upload; after PREPARING, timeout/disconnect aborts upload to protect refresh. Older firmware cannot prepare the screen; failed uploads may leave it visible until reboot.
 
-Config: `platformio.ini`; RTC upload sync: `tools/platformio-upload-time/platformio-upload-time.py`. `make build`/`make upload` also format unrelated sources.
+Config: `platformio.ini`. Firmware uploads do not inject host time or modify a valid RTC. `make build`/`make upload` also format unrelated sources.
 
 Checks: `make test-board-startup test-power-service`; `.pio-core/penv/bin/python tests/FirmwareUploadHookTest.py`. Driver behavior, USB reset and image retention require device verification.
 
 ## Bluetooth
 
 The BLE domain owns the NimBLE radio and GATT server through `src/platform/ble/services/BLEService.h/.cpp`; HAL does not initialize a second Bluetooth stack. ServiceManager owns its lifecycle. See [BLE](ble.md) for pairing and NVS persistence.
+
+RTC initialization preserves readable hardware time. An invalid/reset RTC gets a fixed baseline of 2000-01-01 (Saturday) so startup can proceed until BLE RPC supplies actual time and timezone. Neither upload timestamps nor compiler date/time are used; the retired `paper-mono/rtc-stamp` NVS key is ignored, without erasing existing NVS or BLE bonds. Checks: `make test-rtc-clock test-time-sync`.

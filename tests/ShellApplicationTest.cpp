@@ -463,6 +463,11 @@ bool readCharging(bool& charging) {
     return true;
 }
 
+bool setClockTime(const Rtc::DateTime& value) {
+    (void)value;
+    return true;
+}
+
 Rtc::DateTime clockTime() {
     return ::clockTime;
 }

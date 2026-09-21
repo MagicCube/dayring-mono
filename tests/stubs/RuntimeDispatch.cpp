@@ -35,6 +35,11 @@ bool hasInputActivity() {
     return false;
 }
 
+bool setClockTime(const Rtc::DateTime& value) {
+    (void)value;
+    return true;
+}
+
 Rtc::DateTime clockTime() {
     return {};
 }

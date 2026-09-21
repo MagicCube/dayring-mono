@@ -33,12 +33,49 @@ int main() {
     test::event(BLE_GAP_EVENT_ENC_CHANGE);
     assert(service.state() == State::Secured);
     assert(test::readStatus().second == platform::ble::pairedResponse);
+    assert(service.session() == 0);
+    test::event(BLE_GAP_EVENT_SUBSCRIBE);
+    const auto session = service.session();
+    assert(session != 0);
+    const std::array<uint8_t, 8> frame{0xD1, 0, 1, 0, 1, 0, 0, 0};
+    assert(service.send(session, frame) && test::notification.size() == 8);
+    os_mbuf input{std::string(reinterpret_cast<const char*>(frame.data()), frame.size())};
+    ble_gatt_access_ctxt access{&input};
+    assert(test::rpcWrite.access_cb(1, 0, &access, test::rpcWrite.arg) == 0);
+    platform::rpc::Packet received;
+    assert(service.receive(received) && received.session == session && received.size == 8);
     assert(test::event(BLE_GAP_EVENT_REPEAT_PAIRING) == BLE_GAP_REPEAT_PAIRING_IGNORE);
     test::event(BLE_GAP_EVENT_ENC_CHANGE, 1);
     assert(service.state() == State::Failed && test::disconnects == 1);
+    assert(service.session() == 0 && !service.send(session, frame));
     test::event(BLE_GAP_EVENT_DISCONNECT);
     assert(service.state() == State::Advertising && test::advertisements == 2);
+    // An out-of-range disconnect preserves bonds and permits encrypted reconnection.
+    test::event(BLE_GAP_EVENT_CONNECT);
+    test::event(BLE_GAP_EVENT_ENC_CHANGE);
+    assert(service.state() == State::Secured);
+    test::failAdvertising = true;
+    test::event(BLE_GAP_EVENT_DISCONNECT);
+    assert(service.state() == State::Failed);
+    const int attempts = test::advertisements;
+    service.update(2000);
+    assert(test::advertisements == attempts + 1);
+    service.update(2001);
+    assert(test::advertisements == attempts + 1);
+    test::failAdvertising = false;
+    service.update(3000);
+    assert(service.state() == State::Advertising && test::advertisements == attempts + 2);
+    test::event(BLE_GAP_EVENT_ADV_COMPLETE);
+    assert(service.state() == State::Advertising && test::advertisements == attempts + 3);
+    test::event(BLE_GAP_EVENT_CONNECT, 1);
+    assert(service.state() == State::Advertising);
+    test::event(BLE_GAP_EVENT_CONNECT);
+    test::event(BLE_GAP_EVENT_ENC_CHANGE);
+    assert(service.state() == State::Secured && service.bondCount() == 1);
     service.stop();
+    const int stoppedAttempts = test::advertisements;
+    service.update(5000);
+    assert(test::advertisements == stoppedAttempts);
     service.stop();
     assert(!service.isRunning() && test::stops == 1 && test::deinits == 1);
     assert(test::bonds.size() == 1);
@@ -55,5 +92,39 @@ int main() {
     assert(!test::hostRunning && test::deinits == 4 && test::stops == 3);
     test::failRegistration = false;
     assert(service.start());
+    // Bonded reconnect callbacks can arrive in any order, including CONNECT last.
+    const std::array<std::array<int, 3>, 6> orders{{
+        {BLE_GAP_EVENT_CONNECT, BLE_GAP_EVENT_ENC_CHANGE, BLE_GAP_EVENT_SUBSCRIBE},
+        {BLE_GAP_EVENT_CONNECT, BLE_GAP_EVENT_SUBSCRIBE, BLE_GAP_EVENT_ENC_CHANGE},
+        {BLE_GAP_EVENT_ENC_CHANGE, BLE_GAP_EVENT_CONNECT, BLE_GAP_EVENT_SUBSCRIBE},
+        {BLE_GAP_EVENT_ENC_CHANGE, BLE_GAP_EVENT_SUBSCRIBE, BLE_GAP_EVENT_CONNECT},
+        {BLE_GAP_EVENT_SUBSCRIBE, BLE_GAP_EVENT_CONNECT, BLE_GAP_EVENT_ENC_CHANGE},
+        {BLE_GAP_EVENT_SUBSCRIBE, BLE_GAP_EVENT_ENC_CHANGE, BLE_GAP_EVENT_CONNECT},
+    }};
+    uint32_t previousSession = 0;
+    for (const auto& order : orders) {
+        test::event(BLE_GAP_EVENT_DISCONNECT);
+        assert(service.session() == 0);
+        uint32_t readySession = 0;
+        for (const auto event : order) {
+            test::event(event);
+            if (readySession) assert(service.session() == readySession);
+            readySession = service.session();
+        }
+        assert(service.state() == State::Secured && readySession && readySession != previousSession);
+        previousSession = readySession;
+        assert(test::rpcWrite.access_cb(1, 0, &access, test::rpcWrite.arg) == 0);
+        const auto requests = test::securityRequests;
+        test::event(BLE_GAP_EVENT_CONNECT);
+        assert(test::securityRequests == requests && service.session() == readySession);
+        assert(service.receive(received) && received.session == readySession);
+    }
+    ble_hs_cfg.reset_cb(1);
+    assert(service.session() == 0 && service.state() == State::Failed);
+    ble_hs_cfg.sync_cb();
+    test::event(BLE_GAP_EVENT_ENC_CHANGE);
+    test::event(BLE_GAP_EVENT_SUBSCRIBE);
+    test::event(BLE_GAP_EVENT_CONNECT);
+    assert(service.state() == State::Secured && service.session() != previousSession);
     std::cout << "BLE lifecycle and pairing policy tests passed (simulated NimBLE API)\n";
 }

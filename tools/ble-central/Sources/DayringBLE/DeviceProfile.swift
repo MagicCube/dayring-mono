@@ -5,6 +5,8 @@ import Foundation
 public struct DeviceProfile {
     public static let dayringServiceUUID = UUID(uuidString: "B86E1000-7C65-4DAB-9F21-6A57D2E84010")!
     public static let pairingStatusUUID = UUID(uuidString: "B86E1001-7C65-4DAB-9F21-6A57D2E84010")!
+    public static let rpcWriteUUID = UUID(uuidString: "B86E1002-7C65-4DAB-9F21-6A57D2E84010")!
+    public static let rpcNotifyUUID = UUID(uuidString: "B86E1003-7C65-4DAB-9F21-6A57D2E84010")!
     public static let pairedResponse = Data("dayring-bonded-v1".utf8)
     public let serviceUUID: UUID
     public let peripheralID: UUID?
@@ -31,5 +33,6 @@ public enum CentralEvent {
     case paired(UUID)
     case disconnected(UUID, String?)
     case failed(String)
+    case rpcStatus(String)
     case stopped
 }

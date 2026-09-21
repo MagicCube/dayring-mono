@@ -16,12 +16,15 @@ ServiceManager::ServiceManager() {
     auto tasks = std::make_unique<tasking::TaskDispatchService>();
     _tasks = tasks.get();
     _services.push_back(std::move(tasks));
-    auto time = std::make_unique<time::TimeService>();
-    _time = time.get();
-    _services.push_back(std::move(time));
     auto ble = std::make_unique<ble::BLEService>();
     _ble = ble.get();
     _services.push_back(std::move(ble));
+    auto rpc = std::make_unique<rpc::RPCService>(*_ble, *_tasks);
+    _rpc = rpc.get();
+    _services.push_back(std::move(rpc));
+    auto time = std::make_unique<time::TimeService>(_rpc);
+    _time = time.get();
+    _services.push_back(std::move(time));
 }
 
 ServiceManager::~ServiceManager() {
@@ -70,6 +73,14 @@ void ServiceManager::stop() {
 
 bool ServiceManager::isRunning() const {
     return !_transitioning && _started == _services.size();
+}
+
+rpc::RPCService& ServiceManager::rpc() {
+    return *_rpc;
+}
+
+const rpc::RPCService& ServiceManager::rpc() const {
+    return *_rpc;
 }
 
 ble::BLEService& ServiceManager::ble() {

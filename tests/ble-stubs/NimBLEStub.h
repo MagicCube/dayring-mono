@@ -17,6 +17,7 @@ constexpr int BLE_SM_PAIR_KEY_DIST_ENC = 1, BLE_SM_PAIR_KEY_DIST_ID = 2;
 constexpr int BLE_GATT_CHR_F_READ = 1, BLE_GATT_CHR_F_READ_ENC = 2, BLE_GATT_SVC_TYPE_PRIMARY = 1;
 constexpr int BLE_HS_ADV_F_DISC_GEN = 2, BLE_HS_ADV_F_BREDR_UNSUP = 4, BLE_HS_FOREVER = -1;
 constexpr int BLE_GAP_CONN_MODE_UND = 1, BLE_GAP_DISC_MODE_GEN = 1, BLE_ERR_REM_USER_CONN_TERM = 19;
+constexpr int BLE_GAP_EVENT_ADV_COMPLETE = 6;
 constexpr int BLE_GAP_EVENT_CONNECT = 1, BLE_GAP_EVENT_DISCONNECT = 2, BLE_GAP_EVENT_ENC_CHANGE = 3;
 constexpr int BLE_GAP_EVENT_REPEAT_PAIRING = 4, BLE_GAP_REPEAT_PAIRING_IGNORE = 1;
 constexpr int BLE_ATT_ERR_UNLIKELY = 14, BLE_ATT_ERR_INSUFFICIENT_ENC = 15, BLE_ATT_ERR_INSUFFICIENT_RES = 17;
@@ -51,6 +52,7 @@ struct ble_gatt_chr_def {
     void* arg = nullptr;
     int flags = 0;
     int min_key_size = 0;
+    uint16_t* val_handle = nullptr;
 };
 
 struct ble_gatt_svc_def {
@@ -86,6 +88,12 @@ struct ble_gap_event {
         int status = 0;
         uint16_t conn_handle = 1;
     } connect, enc_change;
+
+    struct {
+        uint16_t conn_handle = 1;
+        uint16_t attr_handle = 77;
+        bool cur_notify = true;
+    } subscribe;
 };
 
 struct HostConfig {
@@ -104,6 +112,7 @@ inline int starts = 0, stops = 0, deinits = 0, advertisements = 0, securityReque
 inline ble_gap_conn_desc connection;
 inline std::vector<ble_addr_t> bonds;
 inline ble_gatt_chr_def characteristic;
+inline ble_gatt_chr_def rpcWrite;
 inline int (*gapCallback)(ble_gap_event*, void*) = nullptr;
 inline void* gapContext = nullptr;
 inline std::vector<std::string> uuids;
@@ -186,6 +195,8 @@ inline int ble_gatts_count_cfg(ble_gatt_svc_def*) {
 
 inline int ble_gatts_add_svcs(ble_gatt_svc_def* services) {
     ble_test::characteristic = services[0].characteristics[0];
+    ble_test::rpcWrite = services[0].characteristics[1];
+    if (services[0].characteristics[2].val_handle) *services[0].characteristics[2].val_handle = 77;
     return 0;
 }
 
@@ -247,4 +258,56 @@ inline int os_mbuf_append(os_mbuf* output, const void* data, std::size_t length)
 }
 
 extern "C" inline void ble_store_config_init() {
+}
+
+constexpr int BLE_GATT_CHR_F_WRITE = 4, BLE_GATT_CHR_F_WRITE_ENC = 8, BLE_GATT_CHR_F_NOTIFY = 16;
+constexpr int BLE_GAP_EVENT_SUBSCRIBE = 5, BLE_ATT_ERR_INSUFFICIENT_AUTHEN = 5, BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN = 13;
+
+struct ble_npl_event {
+    void (*callback)(ble_npl_event*) = nullptr;
+    void* arg = nullptr;
+};
+
+inline void ble_npl_event_init(ble_npl_event* event, void (*callback)(ble_npl_event*), void* arg) {
+    *event = {callback, arg};
+}
+
+inline void* ble_npl_event_get_arg(ble_npl_event* event) {
+    return event->arg;
+}
+
+inline void* nimble_port_get_dflt_eventq() {
+    return nullptr;
+}
+
+inline void ble_npl_eventq_put(void*, ble_npl_event* event) {
+    event->callback(event);
+}
+
+#define OS_MBUF_PKTLEN(buffer) ((buffer)->value.size())
+
+inline int ble_hs_mbuf_to_flat(os_mbuf* buffer, void* data, uint16_t capacity, uint16_t* length) {
+    if (buffer->value.size() > capacity) return 1;
+    *length = buffer->value.size();
+    std::memcpy(data, buffer->value.data(), *length);
+    return 0;
+}
+
+inline os_mbuf* ble_hs_mbuf_from_flat(const void* data, uint16_t length) {
+    return new os_mbuf{std::string(static_cast<const char*>(data), length)};
+}
+
+namespace ble_test {
+
+inline std::string notification;
+
+}
+
+inline int ble_gatts_notify_custom(uint16_t, uint16_t, os_mbuf* buffer) {
+    ble_test::notification = buffer->value;
+    delete buffer;
+    return 0;
+}
+
+inline void ble_svc_gatt_changed(uint16_t, uint16_t) {
 }

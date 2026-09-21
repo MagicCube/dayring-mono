@@ -28,8 +28,23 @@ class BLEService::Backend {};
 BLEService::BLEService() = default;
 BLEService::~BLEService() = default;
 
+uint32_t BLEService::session() const {
+    return 0;
+}
+
+bool BLEService::receive(rpc::Packet&) {
+    return false;
+}
+
+bool BLEService::send(uint32_t, std::span<const uint8_t>) {
+    return false;
+}
+
 bool BLEService::start() {
     return true;
+}
+
+void BLEService::update(uint32_t) {
 }
 
 void BLEService::stop() {

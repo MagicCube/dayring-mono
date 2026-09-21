@@ -12,7 +12,8 @@ APPLICATION_SOURCES := src/platform/ui/PageController.cpp src/platform/runtime/A
 FRONTLIGHT_SOURCES := src/platform/hal/services/FrontlightService.cpp src/platform/hal/Frontlight.cpp
 POWER_SOURCES := src/platform/hal/services/PowerService.cpp $(FRONTLIGHT_SOURCES)
 BLE_SOURCES := src/platform/ble/services/BLEService.cpp
-TIME_SOURCES := src/platform/time/services/TimeService.cpp
+RPC_SOURCES := src/platform/rpc/services/RPCService.cpp
+TIME_SOURCES := src/platform/time/services/TimeService.cpp $(RPC_SOURCES)
 HOST_UI_FLAGS := -isystem freeink-sdk/libs/hardware/Rtc/include -Isrc -Itests/stubs -isystem freeink-sdk/libs/ui/FreeInkUI/include
 
 .DEFAULT_GOAL := build
@@ -165,7 +166,7 @@ test-time-service:
 	@time_test=$$(mktemp /tmp/dayring-time-service-test.XXXXXX); \
 	trap 'rm -f "$$time_test"' EXIT; \
 	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror -fno-exceptions $(HOST_UI_FLAGS) \
-		tests/TimeServiceTest.cpp $(TIME_SOURCES) -o "$$time_test" && "$$time_test"
+		tests/TimeServiceTest.cpp $(TIME_SOURCES) src/platform/tasking/services/TaskDispatchService.cpp -o "$$time_test" && "$$time_test"
 
 .PHONY: test-frontlight-service
 test: test-frontlight-service
@@ -203,3 +204,27 @@ test-qr-code:
 	trap 'rm -f "$$qr_test"' EXIT; \
 	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror -fno-exceptions -Isrc \
 		tests/QRCodeTest.cpp $(QR_SOURCES) -o "$$qr_test" && "$$qr_test"
+
+.PHONY: test-rpc-service test-time-sync
+test: test-rpc-service test-time-sync
+
+test-rpc-service:
+	@rpc_test=$$(mktemp /tmp/dayring-rpc-test.XXXXXX); \
+	trap 'rm -f "$$rpc_test"' EXIT; \
+	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror -fno-exceptions -Isrc \
+		tests/RPCServiceTest.cpp $(RPC_SOURCES) src/platform/tasking/services/TaskDispatchService.cpp -o "$$rpc_test" && "$$rpc_test"
+
+test-time-sync:
+	@sync_test=$$(mktemp /tmp/dayring-time-sync-test.XXXXXX); \
+	trap 'rm -f "$$sync_test"' EXIT; \
+	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror -fno-exceptions $(HOST_UI_FLAGS) \
+		tests/TimeSyncTest.cpp $(TIME_SOURCES) src/platform/tasking/services/TaskDispatchService.cpp -o "$$sync_test" && "$$sync_test"
+
+.PHONY: test-rtc-clock
+test: test-rtc-clock
+
+test-rtc-clock:
+	@rtc_test=$$(mktemp /tmp/dayring-rtc-test.XXXXXX); \
+	trap 'rm -f "$$rtc_test"' EXIT; \
+	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror -fno-exceptions $(HOST_UI_FLAGS) \
+		tests/RtcClockTest.cpp src/platform/hal/RtcClock.cpp -o "$$rtc_test" && "$$rtc_test"

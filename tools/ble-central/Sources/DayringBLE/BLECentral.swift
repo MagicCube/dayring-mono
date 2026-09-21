@@ -5,19 +5,30 @@ import Foundation
 /// Retain this object until stop() completes. Connection does not imply bonding or RPC readiness.
 public final class BLECentral: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
     public var onEvent: ((CentralEvent) -> Void)?
-    private let _profile: DeviceProfile
-    private var _manager: CBCentralManager!
-    private var _peripheral: CBPeripheral?
-    private var _timer: Timer?
-    private var _pairingRetry: DispatchWorkItem?
-    private var _pairingCharacteristic: CBCharacteristic?
+    let _profile: DeviceProfile
+    var _manager: CBCentralManager!
+    var _peripheral: CBPeripheral?
+    var _timer: Timer?
+    var _pairingRetry: DispatchWorkItem?
+    var _pairingCharacteristic: CBCharacteristic?
     private var _verifyPairing = true
     private var _pairingTimeout: TimeInterval = 60
-    private var _running = false
+    var _running = false
     private var _listOnly = false
-    private var _connectTimeout: TimeInterval = 15
+    var _connectTimeout: TimeInterval = 15
     private var _scanTimeout: TimeInterval = 20
     private var _seen = Set<UUID>()
+    let _rpc = RPCPeer()
+    var _rpcWrite: CBCharacteristic?
+    var _rpcNotify: CBCharacteristic?
+    var _rpcQueue: [Data] = []
+    var _rpcWriteStarted: TimeInterval = 0
+    var _rpcTimer: Timer?
+    var _rpcEpoch: UInt64 = 0
+    var _rpcReady = false
+    var _reconnecting = false
+    var _reconnectWork: DispatchWorkItem?
+    var _recovery = ConnectionRecovery()
 
     public init(profile: DeviceProfile = DeviceProfile()) {
         _profile = profile
@@ -33,6 +44,7 @@ public final class BLECentral: NSObject, CBCentralManagerDelegate, CBPeripheralD
         _verifyPairing = verifyPairing
         _pairingTimeout = pairingTimeout
         _running = true
+        _recovery.connected()
         _listOnly = listOnly
         _scanTimeout = scanTimeout
         _connectTimeout = connectTimeout
@@ -49,6 +61,9 @@ public final class BLECentral: NSObject, CBCentralManagerDelegate, CBPeripheralD
         dispatchPrecondition(condition: .onQueue(.main))
         guard _running else { return }
         _running = false
+        _reconnectWork?.cancel(); _reconnectWork = nil
+        _reconnecting = false
+        resetRPC()
         _timer?.invalidate()
         _timer = nil
         _pairingRetry?.cancel()
@@ -104,14 +119,14 @@ public final class BLECentral: NSObject, CBCentralManagerDelegate, CBPeripheralD
     }
 
     public func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
-        guard _running, peripheral === _peripheral else { return }
+        guard _running, !_reconnecting, peripheral === _peripheral else { return }
         _deadline(after: _connectTimeout, message: "Service discovery timeout")
         peripheral.discoverServices([CBUUID(nsuuid: _profile.serviceUUID)])
         onEvent?(.connected(peripheral.identifier))
     }
 
     public func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
-        guard _running, peripheral === _peripheral else { return }
+        guard _running, !_reconnecting, peripheral === _peripheral else { return }
         if let error { _fail("Service discovery failed: \(error.localizedDescription)"); return }
         guard let service = peripheral.services?.first(where: { $0.uuid == CBUUID(nsuuid: _profile.serviceUUID) }) else {
             _fail("Connected peripheral does not expose the expected service")
@@ -122,14 +137,15 @@ public final class BLECentral: NSObject, CBCentralManagerDelegate, CBPeripheralD
         onEvent?(.serviceAvailable(peripheral.identifier))
         if _verifyPairing {
             _deadline(after: _pairingTimeout, message: "Pairing timeout: encrypted bond confirmation not received")
-            peripheral.discoverCharacteristics([CBUUID(nsuuid: DeviceProfile.pairingStatusUUID)], for: service)
+            peripheral.discoverCharacteristics([CBUUID(nsuuid: DeviceProfile.pairingStatusUUID),
+                CBUUID(nsuuid: DeviceProfile.rpcWriteUUID), CBUUID(nsuuid: DeviceProfile.rpcNotifyUUID)], for: service)
             onEvent?(.pairing(peripheral.identifier))
         }
     }
 
     public func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService,
                            error: Error?) {
-        guard _running, peripheral === _peripheral else { return }
+        guard _running, !_reconnecting, peripheral === _peripheral else { return }
         if let error { _fail("Pairing characteristic discovery failed: \(error.localizedDescription)"); return }
         guard let characteristic = service.characteristics?.first(where: {
             $0.uuid == CBUUID(nsuuid: DeviceProfile.pairingStatusUUID) && $0.properties.contains(.read)
@@ -137,19 +153,28 @@ public final class BLECentral: NSObject, CBCentralManagerDelegate, CBPeripheralD
             _fail("Pairing status characteristic is missing or not readable")
             return
         }
+        configureRPC(service: service, peripheral: peripheral)
         _pairingCharacteristic = characteristic
         peripheral.readValue(for: characteristic)
     }
 
     public func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic,
                            error: Error?) {
-        guard _running, peripheral === _peripheral, characteristic === _pairingCharacteristic else { return }
+        guard _running, !_reconnecting, peripheral === _peripheral else { return }
+        if characteristic === _rpcNotify {
+            if let error { _fail("RPC notification failed: \(error.localizedDescription)"); return }
+            do { if let data = characteristic.value { try _rpc.receive(data) } }
+            catch { _fail("Invalid RPC message: \(error)") }
+            return
+        }
+        guard characteristic === _pairingCharacteristic else { return }
         if let error { _fail("Encrypted pairing read failed: \(error.localizedDescription)"); return }
         if characteristic.value == DeviceProfile.pairedResponse {
             _timer?.invalidate()
             _timer = nil
             _pairingCharacteristic = nil
             onEvent?(.paired(peripheral.identifier))
+            startRPC(peripheral)
         } else if characteristic.value == Data("pending".utf8) {
             // Encryption can complete just before the host finishes storing the bond.
             let retry = DispatchWorkItem { [weak self] in
@@ -165,19 +190,21 @@ public final class BLECentral: NSObject, CBCentralManagerDelegate, CBPeripheralD
     }
 
     public func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
-        guard _running, peripheral === _peripheral else { return }
-        _fail("Connection failed: \(error?.localizedDescription ?? "unknown error")")
+        guard _running, !_reconnecting, peripheral === _peripheral else { return }
+        recoverConnection("Connection failed: \(error?.localizedDescription ?? "unknown error")")
     }
 
     public func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral,
                                error: Error?) {
         guard _running, peripheral === _peripheral else { return }
-        _peripheral = nil
-        onEvent?(.disconnected(peripheral.identifier, error?.localizedDescription))
-        stop()
+        if _reconnecting {
+            scheduleReconnect(peripheral)
+        } else {
+            recoverConnection("Link disconnected: \(error?.localizedDescription ?? "remote disconnect")")
+        }
     }
 
-    private func _deadline(after seconds: TimeInterval, message: String) {
+    func _deadline(after seconds: TimeInterval, message: String) {
         _timer?.invalidate()
         _timer = Timer.scheduledTimer(withTimeInterval: seconds, repeats: false) { [weak self] _ in
             guard let self, self._running else { return }
@@ -186,7 +213,8 @@ public final class BLECentral: NSObject, CBCentralManagerDelegate, CBPeripheralD
         }
     }
 
-    private func _fail(_ message: String) {
+    func _fail(_ message: String) {
+        guard _running else { return }
         stop()
         onEvent?(.failed(message))
     }
