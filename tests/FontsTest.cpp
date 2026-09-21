@@ -11,7 +11,7 @@ int main() {
     std::array<uint8_t, 480 * 800 / 8> pixels{};
     freeink::ui::DisplayTarget target(pixels.data(), 480, 800, 60);
     registerFonts(target);
-    constexpr std::array<int16_t, 8> heights{27, 33, 38, 48, 55, 45, 76, 114};
+    constexpr std::array<int16_t, 8> heights{28, 33, 38, 48, 55, 45, 76, 114};
     for (freeink::ui::FontId slot = 0; slot < heights.size(); ++slot) {
         assert(target.lineHeight(slot) == heights[slot]);
     }

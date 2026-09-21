@@ -10,7 +10,7 @@ from fontTools.ttLib import TTFont
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / "src/platform/fonts/generated"
 SPECS = [
-    ("RobotoS", "roboto/Roboto-Regular.ttf", 22),
+    ("RobotoS", "roboto/Roboto-Regular.ttf", 23),
     ("RobotoM", "roboto/Roboto-Regular.ttf", 28),
     ("RobotoL", "roboto/Roboto-Medium.ttf", 32),
     ("RobotoXL", "roboto/Roboto-Medium.ttf", 40),
