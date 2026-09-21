@@ -17,8 +17,8 @@ class RPCMailbox {
         std::lock_guard lock(_mutex);
         _session = ready ? ++_generation : 0;
         if (ready && !_session) _session = ++_generation;
-        _rx = {};
-        _tx = {};
+        _rx.head = _rx.size = 0;
+        _tx.head = _tx.size = 0;
     }
 
     bool send(uint32_t session, std::span<const uint8_t> bytes) {
@@ -48,7 +48,7 @@ class RPCMailbox {
         size_t head = 0, size = 0;
 
         bool push(uint32_t session, std::span<const uint8_t> bytes) {
-            if (size == packets.size() || bytes.size() > 20 || bytes.empty()) return false;
+            if (size == packets.size() || bytes.size() > rpc::maxPacketSize || bytes.empty()) return false;
             auto& packet = packets[(head + size++) % packets.size()];
             packet.session = session;
             packet.size = bytes.size();

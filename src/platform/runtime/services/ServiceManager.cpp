@@ -3,6 +3,8 @@
 #include <cassert>
 #include <utility>
 
+#include "../../hal/services/DeviceControlService.h"
+
 namespace platform::runtime {
 
 ServiceManager::ServiceManager() {
@@ -22,6 +24,7 @@ ServiceManager::ServiceManager() {
     auto rpc = std::make_unique<rpc::RPCService>(*_ble, *_tasks);
     _rpc = rpc.get();
     _services.push_back(std::move(rpc));
+    _services.push_back(std::make_unique<hal::DeviceControlService>(*_rpc, *_ble));
     auto time = std::make_unique<time::TimeService>(_rpc);
     _time = time.get();
     _services.push_back(std::move(time));

@@ -17,7 +17,7 @@ constexpr int BLE_SM_PAIR_KEY_DIST_ENC = 1, BLE_SM_PAIR_KEY_DIST_ID = 2;
 constexpr int BLE_GATT_CHR_F_READ = 1, BLE_GATT_CHR_F_READ_ENC = 2, BLE_GATT_SVC_TYPE_PRIMARY = 1;
 constexpr int BLE_HS_ADV_F_DISC_GEN = 2, BLE_HS_ADV_F_BREDR_UNSUP = 4, BLE_HS_FOREVER = -1;
 constexpr int BLE_GAP_CONN_MODE_UND = 1, BLE_GAP_DISC_MODE_GEN = 1, BLE_ERR_REM_USER_CONN_TERM = 19;
-constexpr int BLE_GAP_EVENT_ADV_COMPLETE = 6;
+constexpr int BLE_GAP_EVENT_ADV_COMPLETE = 6, BLE_GAP_EVENT_MTU = 15;
 constexpr int BLE_GAP_EVENT_CONNECT = 1, BLE_GAP_EVENT_DISCONNECT = 2, BLE_GAP_EVENT_ENC_CHANGE = 3;
 constexpr int BLE_GAP_EVENT_REPEAT_PAIRING = 4, BLE_GAP_REPEAT_PAIRING_IGNORE = 1;
 constexpr int BLE_ATT_ERR_UNLIKELY = 14, BLE_ATT_ERR_INSUFFICIENT_ENC = 15, BLE_ATT_ERR_INSUFFICIENT_RES = 17;
@@ -88,6 +88,10 @@ struct ble_gap_event {
         int status = 0;
         uint16_t conn_handle = 1;
     } connect, enc_change;
+
+    struct {
+        uint16_t conn_handle = 1;
+    } mtu;
 
     struct {
         uint16_t conn_handle = 1;
@@ -310,4 +314,36 @@ inline int ble_gatts_notify_custom(uint16_t, uint16_t, os_mbuf* buffer) {
 }
 
 inline void ble_svc_gatt_changed(uint16_t, uint16_t) {
+}
+
+namespace ble_test {
+
+inline uint16_t attMTU = 23;
+
+}
+
+inline uint16_t ble_att_mtu(uint16_t) {
+    return ble_test::attMTU;
+}
+
+constexpr int BLE_STORE_OBJ_TYPE_OUR_SEC = 1, BLE_STORE_OBJ_TYPE_PEER_SEC = 2, BLE_STORE_OBJ_TYPE_CCCD = 3;
+
+namespace ble_test {
+
+inline bool failClear = false;
+inline int clears = 0, cccds = 1;
+
+}  // namespace ble_test
+
+inline int ble_store_clear() {
+    ++ble_test::clears;
+    if (ble_test::failClear) return 1;
+    ble_test::bonds.clear();
+    ble_test::cccds = 0;
+    return 0;
+}
+
+inline int ble_store_util_count(int type, int* count) {
+    *count = type == BLE_STORE_OBJ_TYPE_CCCD ? ble_test::cccds : ble_test::bonds.size();
+    return 0;
 }

@@ -72,7 +72,7 @@ class ClockTransport final : public rpc::Transport {
             rpc::Message reply{.kind = rpc::Kind::Response,
                                .id = request->id,
                                .method = request->method,
-                               .size = static_cast<uint8_t>(chunk.size())};
+                               .payload = std::vector<uint8_t>(chunk.size())};
             std::copy(chunk.begin(), chunk.end(), reply.payload.begin());
             auto packet = rpc::encode(reply);
             packet.session = session;
@@ -87,10 +87,11 @@ class ClockTransport final : public rpc::Transport {
             rpc::Message reply{.kind = rpc::Kind::Response,
                                .id = request->id,
                                .method = request->method,
-                               .size = static_cast<uint8_t>(malformed ? 0 : 12)};
+                               .payload = std::vector<uint8_t>(12)};
             for (int i = 0; i < 8; ++i) reply.payload[i] = epoch >> (8 * i);
             const uint32_t rawOffset = static_cast<uint32_t>(offset);
             for (int i = 0; i < 4; ++i) reply.payload[8 + i] = rawOffset >> (8 * i);
+            if (malformed) reply.payload.clear();
             auto packet = rpc::encode(reply);
             packet.session = session;
             input.push_back(packet);

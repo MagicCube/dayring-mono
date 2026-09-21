@@ -33,9 +33,14 @@ public struct RPCMessage: Equatable {
 /// Main-queue RPC endpoint, independent of Core Bluetooth and reusable in iOS.
 /// The transport must preserve message boundaries and reset this peer on disconnection.
 public final class RPCPeer {
+    public static let maximumPayloadSize = 10 * 1024
+    public var maximumPacketSize: () -> Int = { 20 }
+    public var onTransportFailure: (() -> Void)?
+    private let _channel = RPCMessageChannel()
     public typealias Completion = (Result<Data, RPCError>) -> Void
     public typealias Handler = (Data) -> Result<Data, UInt8Error>
     public struct UInt8Error: Error { public let code: UInt8; public init(_ code: UInt8) { self.code = code } }
+    /// Enqueue a packet; never synchronously reenter this peer from the send callback.
     public var send: ((Data) -> Bool)?
     private struct Pending { let method: UInt16; let deadline: TimeInterval; let completion: Completion }
     private var _pending: [UInt16: Pending] = [:]
@@ -46,57 +51,80 @@ public final class RPCPeer {
 
     public func register(method: UInt16, handler: @escaping Handler) { _handlers[method] = handler }
     @discardableResult
-    public func request(method: UInt16, payload: Data = Data(), timeout: TimeInterval = 5,
+    public func request(method: UInt16, payload: Data = Data(), timeout: TimeInterval = 120,
                         completion: @escaping Completion) -> UInt16? {
-        guard payload.count <= 12, timeout.isFinite, timeout > 0 else { completion(.failure(.invalidFrame)); return nil }
+        guard payload.count <= Self.maximumPayloadSize, timeout.isFinite, timeout > 0 else { completion(.failure(.invalidFrame)); return nil }
         guard _pending.count < 8, _nextID != 0 else { completion(.failure(.busy)); return nil }
         let id = _nextID
         _nextID &+= 1
         let message = RPCMessage(kind: .request, id: id, method: method, payload: payload)
-        guard let bytes = try? message.encoded(), send?(bytes) == true else {
-            completion(.failure(.unavailable)); return nil
-        }
+        guard send != nil else { completion(.failure(.unavailable)); return nil }
+        guard _channel.enqueue(message, now: _now(), timeout: timeout) else { completion(.failure(.busy)); return nil }
         _pending[id] = Pending(method: method, deadline: _now() + timeout, completion: completion)
+        _pump()
         return id
     }
     @discardableResult
     public func cancel(_ id: UInt16) -> Bool {
         guard let pending = _pending.removeValue(forKey: id) else { return false }
+        _channel.cancel(id)
         pending.completion(.failure(.cancelled))
         return true
     }
     public func poll() {
         let now = _now()
         let ids = _pending.filter { $0.value.deadline <= now }.map(\.key)
-        for id in ids { _pending.removeValue(forKey: id)?.completion(.failure(.timeout)) }
+        for id in ids {
+            _channel.cancel(id)
+            _pending.removeValue(forKey: id)?.completion(.failure(.timeout))
+        }
+        _pump()
     }
     public func reset() {
         send = nil
+        _channel.reset()
         let pending = _pending; _pending.removeAll(); _nextID = 1
         for entry in pending.values { entry.completion(.failure(.disconnected)) }
     }
     public func receive(_ bytes: Data) throws {
         poll()
-        let message = try RPCMessage.decode(bytes)
+        guard let message = try _channel.receive(bytes, now: _now()) else { _pump(); return }
+        _pump()
         if message.kind != .request {
             guard let pending = _pending[message.id], pending.method == message.method else { return }
+            _channel.cancel(message.id)
             _pending.removeValue(forKey: message.id)
             pending.completion(message.kind == .response ? .success(message.payload) : .failure(.remote(message.payload.first!)))
             return
         }
         let result: Result<Data, UInt8Error>
-        if message.method == 1 { result = .success(message.payload) }
+        if !_channel.reserveReply() { result = .failure(UInt8Error(3)) }
+        else if message.method == 1 { result = .success(message.payload) }
         else if let handler = _handlers[message.method] { result = handler(message.payload) }
         else { result = .failure(UInt8Error(1)) }
+        _channel.releaseReply()
         let response: RPCMessage
         switch result {
-        case .success(let data) where data.count <= 12:
+        case .success(let data) where data.count <= Self.maximumPayloadSize:
             response = RPCMessage(kind: .response, id: message.id, method: message.method, payload: data)
         case .success:
             response = RPCMessage(kind: .error, id: message.id, method: message.method, payload: Data([2]))
         case .failure(let error):
             response = RPCMessage(kind: .error, id: message.id, method: message.method, payload: Data([error.code]))
         }
-        guard send?(try response.encoded()) == true else { throw RPCError.busy }
+        if !_channel.enqueue(response, now: _now()) {
+            let busy = RPCMessage(kind: .error, id: message.id, method: message.method, payload: Data([3]))
+            guard _channel.enqueue(busy, now: _now()) else { throw RPCError.busy }
+        }
+        _pump()
+    }
+
+    private func _pump() {
+        guard let send else { return }
+        _channel.pump(now: _now(), packetSize: maximumPacketSize(), send: send)
+        if _channel.isFailed {
+            reset()
+            onTransportFailure?()
+        }
     }
 }

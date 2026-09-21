@@ -17,7 +17,7 @@ bool TimeService::start() {
         return false;
     if (_rpc && !_rpc->registerHandler(rpc::clockStatusMethod, [this](std::span<const uint8_t> data) {
             if (!data.empty()) return rpc::Reply{.error = rpc::Error::InvalidPayload};
-            rpc::Reply reply{.size = 12};
+            rpc::Reply reply{.payload = std::vector<uint8_t>(12)};
             reply.payload[0] = static_cast<uint8_t>(_syncState);
             reply.payload[1] = _time.year;
             reply.payload[2] = _time.year >> 8;
@@ -94,7 +94,7 @@ void TimeService::_sync(uint32_t now) {
             _pendingZone.clear();
             _fetchTimeZone();
         },
-        now);
+        now, 5000);
     if (!_request) _syncState = SyncState::Failed;
 }
 
@@ -120,7 +120,7 @@ void TimeService::_fetchTimeZone() {
             else
                 _applySample();
         },
-        static_cast<uint32_t>(millis()));
+        static_cast<uint32_t>(millis()), 5000);
     if (!_request) _syncState = SyncState::Failed;
 }
 

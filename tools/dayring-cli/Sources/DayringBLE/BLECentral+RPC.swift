@@ -21,15 +21,16 @@ extension BLECentral {
     }
 
     @discardableResult
-    public func requestRPC(method: UInt16, payload: Data = Data(), timeout: TimeInterval = 5,
+    public func requestRPC(method: UInt16, payload: Data = Data(), timeout: TimeInterval = 120,
                            completion: @escaping RPCPeer.Completion) -> UInt16? {
         dispatchPrecondition(condition: .onQueue(.main))
+        guard _rpcReady else { completion(.failure(.unavailable)); return nil }
         return _rpc.request(method: method, payload: payload, timeout: timeout, completion: completion)
     }
 
     public func registerRPCHandler(method: UInt16, handler: @escaping RPCPeer.Handler) {
         dispatchPrecondition(condition: .onQueue(.main))
-        precondition(method > 5, "Methods 0 through 5 are reserved")
+        precondition(method > 7, "Methods 0 through 7 are reserved")
         _rpc.register(method: method, handler: handler)
     }
 
@@ -59,6 +60,14 @@ extension BLECentral {
                 peripheral.writeValue(data, for: write, type: .withResponse)
             }
             return true
+        }
+        _rpc.maximumPacketSize = { [weak peripheral] in
+            // Use the single-ATT-write limit even though writes request an acknowledgment.
+            min(244, peripheral?.maximumWriteValueLength(for: .withoutResponse) ?? 20)
+        }
+        _rpc.onTransportFailure = { [weak self] in
+            guard let self, self._running, self._rpcEpoch == epoch else { return }
+            self.recoverConnection("RPC transfer stalled")
         }
         var zoneSnapshot = Data()
         var verifyAt: TimeInterval?
@@ -114,12 +123,23 @@ extension BLECentral {
 
     func beginRPCHandshake() {
         let epoch = _rpcEpoch
-        _rpc.request(method: 0) { [weak self] result in
+        _rpc.request(method: 0, payload: Data([2]), timeout: 5) { [weak self] result in
             guard let self, self._running, self._rpcEpoch == epoch else { return }
-            guard case .success = result else { self.recoverConnection("RPC handshake failed: \(result)"); return }
+            guard case .success(let capabilities) = result else {
+                if case .failure(.remote(2)) = result {
+                    self._fail("RPC protocol mismatch: firmware must support 10 KiB messages")
+                } else { self.recoverConnection("RPC handshake failed: \(result)") }
+                return
+            }
+            guard capabilities == Data([2]) else {
+                self._fail("RPC protocol mismatch: firmware must support 10 KiB messages")
+                return
+            }
             self._rpcReady = true
             self._recovery.connected()
             self.onEvent?(.rpcStatus("RPC ready"))
+            if let peripheral = self._peripheral { self.onEvent?(.rpcReady(peripheral.identifier)) }
+            guard self._running, self._rpcEpoch == epoch else { return }
             self._rpc.request(method: 1, payload: Data("ping".utf8)) { [weak self] result in
                 guard let self, self._running, self._rpcEpoch == epoch else { return }
                 switch result {

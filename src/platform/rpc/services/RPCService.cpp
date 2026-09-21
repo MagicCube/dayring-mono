@@ -42,6 +42,7 @@ void RPCService::stop() {
     _ready = false;
     _pump.cancel();
     _session = 0;
+    _channel.reset();
     _failPending(Error::Cancelled);
 }
 
@@ -55,21 +56,22 @@ uint32_t RPCService::session() const {
 
 uint16_t RPCService::request(uint16_t method, std::span<const uint8_t> payload, Completion completion, uint32_t now,
                              uint32_t timeout) {
-    if (!session() || _pending.size() == 8 || payload.size() > 12 || !completion || timeout == 0 ||
-        timeout > 0x7FFFFFFF || _nextId == 0)
+    if (!session() || _pending.size() == 8 || payload.size() > (_largeMessages ? maxPayloadSize : 12) || !completion ||
+        timeout == 0 || timeout > 0x7FFFFFFF || _nextId == 0)
         return 0;
-    Message message{.id = _nextId++, .method = method, .size = static_cast<uint8_t>(payload.size())};
-    std::copy(payload.begin(), payload.end(), message.payload.begin());
-    auto packet = encode(message);
-    if (!_transport.send(_session, {packet.bytes.data(), packet.size})) return 0;
-    _pending.push_back({message.id, method, now, timeout, std::move(completion)});
-    return message.id;
+    _now = now;
+    Message message{.id = _nextId++, .method = method, .payload = {payload.begin(), payload.end()}};
+    const auto id = message.id;
+    if (!_send(std::move(message), timeout)) return 0;
+    _pending.push_back({id, method, now, timeout, std::move(completion)});
+    return id;
 }
 
 bool RPCService::cancel(uint16_t id) {
     const auto it = std::find_if(_pending.begin(), _pending.end(), [id](const auto& p) { return p.id == id; });
     if (it == _pending.end()) return false;
     auto completion = std::move(it->completion);
+    _channel.cancel(id);
     _pending.erase(it);
     completion(Error::Cancelled, {});
     return true;
@@ -95,10 +97,13 @@ void RPCService::_failPending(Error error) {
 }
 
 void RPCService::_poll(uint32_t now) {
+    _now = now;
     const auto current = _transport.session();
     if (current != _session) {
         _session = 0;
         _ready = false;
+        _largeMessages = false;
+        _channel.reset();
         _failPending(Error::Disconnected);
         _session = current;
     }
@@ -110,13 +115,19 @@ void RPCService::_poll(uint32_t now) {
         auto it = std::find_if(_pending.begin(), _pending.end(), [id](const auto& p) { return p.id == id; });
         if (it == _pending.end()) continue;
         auto completion = std::move(it->completion);
+        _channel.cancel(id);
         _pending.erase(it);
         completion(Error::Timeout, {});
     }
+    _flush();
+    if (_channel.isFailed()) return;
     Packet packet;
     for (int budget = 0; budget < 4 && _transport.receive(packet); ++budget) {
         if (!_session || packet.session != _session) continue;
-        if (auto message = decode({packet.bytes.data(), packet.size})) _handle(*message);
+        if (packet.bytes[0] == 0xD2 && !_largeMessages) continue;
+        if (auto message = _channel.receive({packet.bytes.data(), packet.size}, now)) _handle(*message);
+        _flush();
+        if (_channel.isFailed()) break;
     }
 }
 
@@ -126,21 +137,28 @@ void RPCService::_handle(const Message& message) {
                                [&](const auto& p) { return p.id == message.id && p.method == message.method; });
         if (it == _pending.end()) return;
         auto completion = std::move(it->completion);
+        _channel.cancel(message.id);
         _pending.erase(it);
         completion(message.kind == Kind::Error ? static_cast<Error>(message.payload[0]) : Error::None, message.data());
         return;
     }
     Reply reply;
-    if (message.method == helloMethod) {
-        if (message.size != 0)
-            reply.error = Error::InvalidPayload;
-        else
+    if (!_channel.reserveReply()) {
+        reply.error = Error::Busy;
+    } else if (message.method == helloMethod) {
+        if (message.payload.empty()) {
             _ready = true;
+        } else if (message.payload == std::vector<uint8_t>{2}) {
+            _largeMessages = true;
+            _ready = true;
+            reply.payload = {2};
+        } else {
+            reply.error = Error::InvalidPayload;
+        }
     } else if (!_ready) {
         reply.error = Error::Busy;
     } else if (message.method == pingMethod) {
         reply.payload = message.payload;
-        reply.size = message.size;
     } else {
         auto it = std::find_if(_methods.begin(), _methods.end(), [&](const auto& m) { return m.id == message.method; });
         if (it == _methods.end())
@@ -150,17 +168,39 @@ void RPCService::_handle(const Message& message) {
             reply = handler(message.data());
         }
     }
-    if (reply.size > 12) reply.error = Error::InvalidPayload;
-    Message response{
-        .kind = reply.error == Error::None ? Kind::Response : Kind::Error, .id = message.id, .method = message.method};
-    response.payload = reply.payload;
-    response.size = reply.size;
-    if (reply.error != Error::None) {
-        response.payload[0] = static_cast<uint8_t>(reply.error);
-        response.size = 1;
+    _channel.releaseReply();
+    if (reply.payload.size() > (_largeMessages ? maxPayloadSize : 12)) reply.error = Error::InvalidPayload;
+    Message response{.kind = reply.error == Error::None ? Kind::Response : Kind::Error,
+                     .id = message.id,
+                     .method = message.method,
+                     .payload = std::move(reply.payload)};
+    if (reply.error != Error::None) response.payload = {static_cast<uint8_t>(reply.error)};
+    if (!_send(std::move(response))) {
+        if (!_send({.kind = Kind::Error,
+                    .id = message.id,
+                    .method = message.method,
+                    .payload = {static_cast<uint8_t>(Error::Busy)}})) {
+            _ready = false;
+            _transport.disconnect();
+        }
     }
-    const auto packet = encode(response);
-    (void)_transport.send(_session, {packet.bytes.data(), packet.size});
+}
+
+bool RPCService::_send(Message message, uint32_t timeout) {
+    if (!_channel.enqueue(std::move(message), _now, timeout)) return false;
+    _flush();
+    return !_channel.isFailed();
+}
+
+void RPCService::_flush() {
+    if (!_session) return;
+    if (!_channel.isFailed())
+        _channel.pump(_now, _transport.packetSize(), [this](auto bytes) { return _transport.send(_session, bytes); });
+    if (_channel.isFailed()) {
+        _ready = false;
+        _failPending(Error::Disconnected);
+        _transport.disconnect();
+    }
 }
 
 }  // namespace platform::rpc

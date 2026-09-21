@@ -2,60 +2,9 @@ import Darwin
 import DayringBLE
 import Foundation
 
-struct Options {
-    var listOnly = false
-    var verifyPairing = true
-    var pairingTimeout: TimeInterval = 60
-    var service = DeviceProfile.dayringServiceUUID
-    var device: UUID?
-    var timeout: TimeInterval = 20
-    var connectTimeout: TimeInterval = 15
-
-    init(_ arguments: [String]) throws {
-        guard arguments.first == "dev-server" else { throw UsageError.invalid("Expected dev-server command") }
-        var index = 1
-        while index < arguments.count {
-            let option = arguments[index]
-            if option == "--connect-only" { verifyPairing = false; index += 1; continue }
-            if option == "--list" { listOnly = true; index += 1; continue }
-            guard index + 1 < arguments.count else { throw UsageError.invalid("Missing value for \(option)") }
-            let value = arguments[index + 1]
-            switch option {
-            case "--service", "--device":
-                guard let uuid = UUID(uuidString: value) else { throw UsageError.invalid("Expected a full UUID for \(option)") }
-                if option == "--service" { service = uuid } else { device = uuid }
-            case "--timeout", "--connect-timeout", "--pair-timeout":
-                guard let seconds = Double(value), seconds.isFinite, seconds > 0 else {
-                    throw UsageError.invalid("Expected positive seconds for \(option)")
-                }
-                if option == "--timeout" { timeout = seconds }
-                else if option == "--pair-timeout" { pairingTimeout = seconds }
-                else { connectTimeout = seconds }
-            default: throw UsageError.invalid("Unknown option: \(option)")
-            }
-            index += 2
-        }
-    }
-}
-
-enum UsageError: Error { case invalid(String) }
-let usage = """
-Usage: dayring-cli
-       dayring-cli dev-server [--list] [--service UUID] [--device UUID]
-                        [--timeout SECONDS] [--connect-timeout SECONDS]
-                        [--pair-timeout SECONDS] [--connect-only]
-
-No arguments defaults to dev-server. Use --help or -h for this help.
-
-dev-server     Find a recognized peripheral, connect, verify its bond over an encrypted read, and hold until Ctrl-C.
---connect-only  Verify service without requesting pairing (for other test peripherals).
---list   List nearby advertisements without connecting; exit after the scan timeout.
-Default service: \(DeviceProfile.dayringServiceUUID)
-Default scan/startup timeout: 20s; connection/service discovery timeout: 15s each; pairing: 60s.
-Exit codes: 0 stopped/list complete, 1 BLE failure/disconnection, 2 invalid arguments.
-"""
 let arguments = Array(CommandLine.arguments.dropFirst())
-if arguments == ["--help"] || arguments == ["-h"] {
+if arguments == ["--help"] || arguments == ["-h"] ||
+    (arguments.count == 2 && Command(rawValue: arguments[0]) != nil && ["--help", "-h"].contains(arguments[1])) {
     print(usage)
     exit(0)
 }
@@ -69,6 +18,16 @@ setbuf(stdout, nil)
 let central = BLECentral(profile: DeviceProfile(serviceUUID: options.service, peripheralID: options.device))
 var finished = false
 var exitCode: Int32 = 0
+let pairingStore = options.command == .resetPairing ? MacPairingStore() : nil
+let administration: AdministrationRunner? = options.command == .devServer ? nil : AdministrationRunner(
+    options: options, store: pairingStore,
+    request: { method, payload, timeout, completion in
+        central.requestRPC(method: method, payload: payload, timeout: timeout, completion: completion)
+    }, stopLink: { central.stop() }, finish: { code, message in
+        exitCode = code
+        if code == 0 { print(message) } else { fputs("Error: \(message)\n", stderr) }
+        finished = true
+    })
 central.onEvent = { event in
     switch event {
     case .bluetoothState(let state): print("Bluetooth: \(state)")
@@ -86,21 +45,27 @@ central.onEvent = { event in
     case .failed(let message):
         fputs("Error: \(message)\n", stderr)
         exitCode = 1
-        finished = true
+        if let administration { administration.fail(message) } else { finished = true }
+    case .rpcReady(let id): administration?.rpcReady(identifier: id)
     case .rpcStatus(let status): print(status)
-    case .stopped: finished = true
+    case .stopped: if administration == nil { finished = true }
     }
 }
 signal(SIGINT, SIG_IGN)
 signal(SIGTERM, SIG_IGN)
 let signals = [SIGINT, SIGTERM].map { number -> DispatchSourceSignal in
     let source = DispatchSource.makeSignalSource(signal: number, queue: .main)
-    source.setEventHandler { central.stop() }
+    source.setEventHandler {
+        if let administration { administration.fail("Interrupted") } else { central.stop() }
+    }
     source.resume()
     return source
 }
-central.start(listOnly: options.listOnly, scanTimeout: options.timeout, connectTimeout: options.connectTimeout,
-              verifyPairing: options.verifyPairing, pairingTimeout: options.pairingTimeout)
-while !finished { RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.1)) }
+if !options.macOnly { central.start(listOnly: options.listOnly, scanTimeout: options.timeout, connectTimeout: options.connectTimeout,
+              verifyPairing: options.verifyPairing, pairingTimeout: options.pairingTimeout) }
+while !finished {
+    RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.1))
+    administration?.update()
+}
 withExtendedLifetime(signals) {}
 exit(exitCode)

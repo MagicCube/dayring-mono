@@ -33,6 +33,7 @@ public enum CentralEvent {
     case paired(UUID)
     case disconnected(UUID, String?)
     case failed(String)
+    case rpcReady(UUID)
     case rpcStatus(String)
     case stopped
 }

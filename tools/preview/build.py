@@ -62,7 +62,9 @@ def source_files(target: str = "route") -> list[Path]:
         NATIVE / "HostBLE.cpp",
         *ROOT.glob("src/platform/time/services/*.cpp"),
         *ROOT.glob("src/platform/rpc/services/*.cpp"),
+        *ROOT.glob("src/platform/rpc/*.cpp"),
         ROOT / "src/platform/hal/Frontlight.cpp",
+        ROOT / "src/platform/hal/Restart.cpp",
         NATIVE / "Main.cpp", NATIVE / "HostHardware.cpp", *shared,
     ])
 

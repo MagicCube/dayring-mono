@@ -8,6 +8,7 @@
 // Direct NimBLE use must reserve controller memory before Arduino initArduino().
 #include <esp32-hal-bt-mem.h>
 #include <esp_err.h>
+#include <host/ble_att.h>
 #include <host/ble_hs.h>
 #include <host/ble_hs_mbuf.h>
 #include <host/ble_store.h>
@@ -50,6 +51,16 @@ class BLEService::Backend {
         _subscribed = false;
         _secure = false;
         ble_npl_event_init(&_txEvent, _transmit, this);
+        ble_npl_event_init(
+            &_disconnectEvent,
+            [](ble_npl_event* event) {
+                auto& self = *static_cast<Backend*>(ble_npl_event_get_arg(event));
+                if (self._running && !self._mailbox.session() && self._connection != UINT16_MAX)
+                    ble_gap_terminate(self._connection, BLE_ERR_REM_USER_CONN_TERM);
+            },
+            this);
+        _bondReset = BondResetState::Idle;
+        ble_npl_event_init(&_clearBondsEvent, _clearBonds, this);
         ble_hs_cfg.sync_cb = _onSync;
         ble_hs_cfg.reset_cb = _onReset;
         ble_hs_cfg.store_status_cb = [](ble_store_status_event*, void*) { return BLE_HS_ESTORE_CAP; };
@@ -114,17 +125,51 @@ class BLEService::Backend {
         return _mailbox.session();
     }
 
+    size_t packetSize() const {
+        return _packetSize;
+    }
+
+    void disconnect() {
+        _mailbox.reset(false);
+        ble_npl_eventq_put(nimble_port_get_dflt_eventq(), &_disconnectEvent);
+    }
+
+    bool clearBonds() {
+        auto expected = _bondReset.load();
+        if (expected != BondResetState::Idle && expected != BondResetState::Failed) return false;
+        if (!_running || !_mailbox.session() || !_bondReset.compare_exchange_strong(expected, BondResetState::Pending))
+            return false;
+        ble_npl_eventq_put(nimble_port_get_dflt_eventq(), &_clearBondsEvent);
+        return true;
+    }
+
+    BondResetState bondResetState() const {
+        return _bondReset;
+    }
+
     bool receive(rpc::Packet& packet) {
         return _mailbox.receive(packet);
     }
 
     bool send(uint32_t session, std::span<const uint8_t> bytes) {
-        if (!_running || !_mailbox.send(session, bytes)) return false;
+        if (!_running || bytes.size() > packetSize() || !_mailbox.send(session, bytes)) return false;
         ble_npl_eventq_put(nimble_port_get_dflt_eventq(), &_txEvent);
         return true;
     }
 
    private:
+    static void _clearBonds(ble_npl_event* event) {
+        auto& self = *static_cast<Backend*>(ble_npl_event_get_arg(event));
+        if (!self._running || self._bondReset != BondResetState::Pending) return;
+        int remaining = -1;
+        const bool cleared = ble_store_clear() == 0 &&
+                             ble_store_util_count(BLE_STORE_OBJ_TYPE_OUR_SEC, &remaining) == 0 && remaining == 0 &&
+                             ble_store_util_count(BLE_STORE_OBJ_TYPE_PEER_SEC, &remaining) == 0 && remaining == 0 &&
+                             ble_store_util_count(BLE_STORE_OBJ_TYPE_CCCD, &remaining) == 0 && remaining == 0;
+        self._storedPeer();
+        self._bondReset = cleared ? BondResetState::Complete : BondResetState::Failed;
+    }
+
     bool _registerService() {
         if (ble_svc_gap_device_name_set("Dayring") != 0) return false;
         if (ble_uuid_from_str(&_serviceUUID, serviceUUID) != 0 ||
@@ -156,6 +201,7 @@ class BLEService::Backend {
     }
 
     bool _advertise() {
+        if (_bondReset == BondResetState::Complete) return false;
         ble_hs_adv_fields fields{};
         fields.flags = BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP;
         fields.uuids128 = &_serviceUUID.u128;
@@ -237,7 +283,13 @@ class BLEService::Backend {
                 self._mailbox.reset(false);
                 self._secure = false;
                 self._subscribed = false;
-                self._advertise();
+                if (self._bondReset == BondResetState::Complete) {
+                    // Remove any CCCD state written while the old encrypted link was closing.
+                    if (ble_store_clear() != 0) self._bondReset = BondResetState::Failed;
+                    // DeviceControlService restarts to drop volatile security/resolving-list state.
+                } else {
+                    self._advertise();
+                }
                 break;
             case BLE_GAP_EVENT_ENC_CHANGE: {
                 self._beginConnection(event->enc_change.conn_handle);
@@ -270,6 +322,10 @@ class BLEService::Backend {
                     self._refreshSession();
                 }
                 break;
+            case BLE_GAP_EVENT_MTU:
+                if (event->mtu.conn_handle == self._connection)
+                    self._packetSize = std::clamp<size_t>(ble_att_mtu(self._connection) - 3, 20, rpc::maxPacketSize);
+                break;
             case BLE_GAP_EVENT_REPEAT_PAIRING:
                 // Never silently replace an existing owner's bond.
                 return BLE_GAP_REPEAT_PAIRING_IGNORE;
@@ -294,6 +350,7 @@ class BLEService::Backend {
         // Initialize once per link; a late CONNECT must preserve its ready session.
         if (_connection == handle) return;
         _connection = handle;
+        _packetSize = std::clamp<size_t>(ble_att_mtu(handle) - 3, 20, rpc::maxPacketSize);
         _retryAdvertising = false;
         _secure = false;
         _subscribed = false;
@@ -310,7 +367,7 @@ class BLEService::Backend {
         auto& self = *static_cast<Backend*>(context);
         if (!self._running || !self._secure || handle != self._connection || !self._mailbox.session())
             return BLE_ATT_ERR_INSUFFICIENT_AUTHEN;
-        std::array<uint8_t, 20> bytes{};
+        std::array<uint8_t, rpc::maxPacketSize> bytes{};
         uint16_t length = 0;
         if (OS_MBUF_PKTLEN(access->om) > bytes.size() ||
             ble_hs_mbuf_to_flat(access->om, bytes.data(), bytes.size(), &length) != 0 || length < 8)
@@ -342,7 +399,9 @@ class BLEService::Backend {
     ble_uuid_any_t _writeUUID{}, _notifyUUID{};
     uint16_t _notifyHandle = 0, _connection = UINT16_MAX;
     bool _secure = false, _subscribed = false;
-    ble_npl_event _txEvent{}, _retryEvent{};
+    ble_npl_event _txEvent{}, _retryEvent{}, _disconnectEvent{}, _clearBondsEvent{};
+    std::atomic<BondResetState> _bondReset{BondResetState::Idle};
+    std::atomic<size_t> _packetSize{20};
     std::atomic<bool> _retryAdvertising{false};
     uint32_t _retryAt = 0;
     RPCMailbox _mailbox;
@@ -390,6 +449,21 @@ class BLEService::Backend {
         return 0;
     }
 
+    size_t packetSize() const {
+        return 20;
+    }
+
+    void disconnect() {
+    }
+
+    bool clearBonds() {
+        return false;
+    }
+
+    BondResetState bondResetState() const {
+        return BondResetState::Idle;
+    }
+
     bool receive(rpc::Packet&) {
         return false;
     }
@@ -415,6 +489,22 @@ BLEService::~BLEService() = default;
 
 uint32_t BLEService::session() const {
     return _backend->session();
+}
+
+size_t BLEService::packetSize() const {
+    return _backend->packetSize();
+}
+
+void BLEService::disconnect() {
+    _backend->disconnect();
+}
+
+bool BLEService::clearBonds() {
+    return _backend->clearBonds();
+}
+
+BLEService::BondResetState BLEService::bondResetState() const {
+    return _backend->bondResetState();
 }
 
 bool BLEService::receive(rpc::Packet& packet) {

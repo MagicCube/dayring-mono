@@ -33,6 +33,21 @@ uint32_t BLEService::session() const {
     return 0;
 }
 
+size_t BLEService::packetSize() const {
+    return 20;
+}
+
+void BLEService::disconnect() {
+}
+
+bool BLEService::clearBonds() {
+    return false;
+}
+
+BLEService::BondResetState BLEService::bondResetState() const {
+    return BondResetState::Idle;
+}
+
 bool BLEService::receive(rpc::Packet&) {
     return false;
 }

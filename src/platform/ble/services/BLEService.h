@@ -11,6 +11,7 @@ namespace platform::ble {
 // The public API has no SDK types. Native builds never initialize a radio.
 class BLEService final : public runtime::Service, public rpc::Transport {
    public:
+    enum class BondResetState { Idle, Pending, Complete, Failed };
     enum class State { Stopped, Unavailable, Advertising, Connected, Secured, Failed };
 
     BLEService();
@@ -25,6 +26,10 @@ class BLEService final : public runtime::Service, public rpc::Transport {
     [[nodiscard]] State state() const;
     [[nodiscard]] std::size_t bondCount() const;
     [[nodiscard]] uint32_t session() const override;
+    [[nodiscard]] size_t packetSize() const override;
+    void disconnect() override;
+    [[nodiscard]] bool clearBonds();
+    [[nodiscard]] BondResetState bondResetState() const;
     bool receive(rpc::Packet& packet) override;
     bool send(uint32_t session, std::span<const uint8_t> bytes) override;
 
