@@ -8,7 +8,7 @@ Design rules and rationale: [UI architecture](ui.md).
 | Page ownership, lifecycle, fullscreen invalidation | `src/platform/ui/PageController.*` | `PageController`, `setFullscreen` |
 | Presentation-only pages with default Props | `src/platform/ui/StaticPageController.h` | `StaticPageController<PageType>` |
 | Status layout, full-frame composition, touch filtering and home gesture | `src/platform/ui/ApplicationContainer.cpp` | `render`, `needsRender`, `onInput` |
-| Status clock sampling and battery composition | `src/apps/shell/components/StatusBarController.cpp` | `update`, `render` |
+| Status clock/battery sampling and BLE state/blink timing | `src/apps/shell/components/StatusBarController.cpp` | `update`, `render` |
 | Minute change timing | `src/platform/time/services/TimeService.cpp` | `update`, `displayTime`, `minuteRevision` |
 | Framebuffer adapter and refresh gate | `src/platform/runtime/Display.cpp` | `displayDevice`, `renderFrame` |
 | Article typography preview and tap/swipe paging | `src/apps/typography/TypographyPage.*` | `render`, `_renderArticle`; `TypographyPageController` handles input |
@@ -34,6 +34,12 @@ Use [Preview CLI](../tools/preview/README.md) for route captures and isolated Vi
 - UI changes require final real-page PNG capture, visual inspection and an absolute-path image in the response (see root `AGENTS.md`).
 
 Checks: `make test-shell test-navigation test-shell-facade test-preview`.
+
+## Bluetooth status
+
+`StatusBar` renders a fixed slot to the left of the rightmost battery, with a two-pixel symbol stroke: a plain symbol for a secured connection, a plain symbol plus exclamation mark while disconnected, and a blinking plain symbol during security negotiation. Dark theme reverses the inks. `StatusBarController` maps BLE `Connected` (link established, security pending) to connecting and `Secured` to connected; other states are disconnected. Advertising alone is not an active connection attempt. The controller toggles visibility every 1000 ms only while connecting; the display's normal refresh gate remains authoritative.
+
+Route captures accept `--bluetooth connected|disconnected|connecting` (default `connected`) through the preview radio adapter; they use the current macOS local time unless `--time` is supplied. Capture all states and both themes with `preview capture-view StatusBar --example bluetooth`.
 
 ## QR codes and pairing
 

@@ -130,6 +130,28 @@ class PreviewTest(unittest.TestCase):
         self.assertEqual(home["resolved_url"], "app://shell/")
         self.assertEqual(decode(home["output"])[2], base)
 
+    def test_bluetooth_states(self):
+        default = self.capture("app://shell/")
+        self.assertEqual(default["state"]["bluetooth"], "connected")
+        baseline = decode(default["output"])[2]
+        frames = {}
+        for state in ("connected", "disconnected", "connecting"):
+            result = self.capture("app://shell/", "--bluetooth", state)
+            self.assertEqual(result["state"]["bluetooth"], state)
+            frames[state] = decode(result["output"])[2]
+            self.assertEqual(frames[state][480 * 36:], baseline[480 * 36:])
+            # Battery and clock stay fixed; only the Bluetooth slot changes.
+            for row in range(36):
+                self.assertEqual(frames[state][row * 480:row * 480 + 390], baseline[row * 480:row * 480 + 390])
+                self.assertEqual(frames[state][row * 480 + 428:(row + 1) * 480], baseline[row * 480 + 428:(row + 1) * 480])
+        self.assertEqual(frames["connected"], baseline)
+        self.assertEqual(frames["connected"], frames["connecting"])
+        self.assertNotEqual(frames["connected"], frames["disconnected"])
+        _, pixels = cli.native(self.executable, ["capture", "app://shell/", "12", "34", "75", "0", "0", "disconnected"])
+        self.assertEqual(pixels, frames["disconnected"])
+        invalid = subprocess.run([str(self.executable), "capture", "app://shell/", "12", "34", "75", "0", "0", "invalid"], capture_output=True)
+        self.assertEqual(invalid.returncode, 2)
+
     def test_errors_preserve_output(self):
         output = self.directory / "preserved.png"
         output.write_bytes(b"keep")
@@ -140,7 +162,7 @@ class PreviewTest(unittest.TestCase):
             result = invoke("capture", url, "--output", str(output), "--json", status=status)
             self.assertFalse(json.loads(result.stdout)["ok"])
             self.assertEqual(output.read_bytes(), b"keep")
-        for arguments in (("--time", "25:00"), ("--battery", "101"), ("--battery", "-1")):
+        for arguments in (("--time", "25:00"), ("--battery", "101"), ("--battery", "-1"), ("--bluetooth", "invalid")):
             result = invoke("capture", "app://shell/", *arguments, "--json", status=2)
             self.assertEqual(json.loads(result.stdout)["error"]["code"], "invalid_arguments")
         invoke("capture", "app://shell/", "--output", str(self.directory), "--json", status=6)
@@ -222,11 +244,13 @@ class PreviewTest(unittest.TestCase):
         self.assertFalse(any("native/include" in flag or "hardware/Rtc" in flag for flag in flags))
         self.assertFalse(any("Controller" in str(p) or "/runtime/" in str(p) or "/hal/" in str(p)
                              for p in build.source_files("view")))
+        self.assertIn(build.NATIVE / "HostBLE.cpp", build.source_files("route"))
+        self.assertNotIn(build.ROOT / "src/platform/ble/services/BLEService.cpp", build.source_files("route"))
         # Inspect actual compiler dependencies, not only the source allowlist.
         _, _, identity = build.configuration("view")
         self.assertIn(build.ROOT / "src/platform/runtime/services/ServiceManager.cpp", build.source_files("route"))
         for service in ("hal/services/FrontlightService.cpp", "hal/services/PowerService.cpp",
-                        "ble/services/BLEService.cpp", "time/services/TimeService.cpp"):
+                        "time/services/TimeService.cpp"):
             self.assertIn(build.ROOT / "src/platform" / service, build.source_files("route"))
             self.assertNotIn(build.ROOT / "src/platform" / service, build.source_files("view"))
         self.assertNotIn(build.ROOT / "src/platform/runtime/services/ServiceManager.cpp", build.source_files("view"))
@@ -262,6 +286,7 @@ class BuildCacheTest(unittest.TestCase):
             (ui / "src/FreeInkUI.cpp").write_text("")
             (native / "Main.cpp").write_text('#include "value.h"\nint main() { return VALUE; }\n')
             (native / "HostHardware.cpp").write_text("")
+            (native / "HostBLE.cpp").write_text("")
             (native / "FrameBuffer.cpp").write_text("")
             dependency = native / "value.h"
             dependency.write_text("#define VALUE 0\n")

@@ -4,6 +4,7 @@
 #include <string_view>
 
 #include "FrameBuffer.h"
+#include "HostBLE.h"
 #include "HostHardware.h"
 #include "apps/RegisterApplications.h"
 #include "platform/runtime/Shell.h"
@@ -116,8 +117,10 @@ int main(int argc, char** argv) {
     auto& shell = Shell::instance();
     if (!apps::registerApplications(shell)) return fail(5, "registration_failed", "Application registration failed.");
     if (argc == 2 && std::string_view(argv[1]) == "routes") return listRoutes(shell);
-    if ((argc == 7 || argc == 8) && std::string_view(argv[1]) == "capture") {
-        return capture(shell, argv, argc == 8 && std::string_view(argv[7]) == "1");
+    if ((argc == 7 || argc == 8 || argc == 9) && std::string_view(argv[1]) == "capture") {
+        if (!preview::configureBluetooth(argc == 9 ? argv[8] : "connected"))
+            return fail(2, "invalid_state", "Invalid Bluetooth state.");
+        return capture(shell, argv, argc >= 8 && std::string_view(argv[7]) == "1");
     }
     return fail(2, "invalid_arguments", "Use the tools/preview/preview launcher. The native protocol is internal.");
 }

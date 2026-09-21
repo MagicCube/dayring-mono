@@ -48,6 +48,21 @@ void renderBatteryExamples(Canvas& canvas, const Rect&) {
 }
 
 const std::array examples{
+    Example{"StatusBar", "bluetooth", pageBounds,
+            [](Canvas& c, const Rect&) {
+                using namespace apps::shell::components;
+                for (int theme = 0; theme < 2; ++theme) {
+                    for (int state = 0; state < 4; ++state) {
+                        StatusBar{}.render(
+                            c, {0, static_cast<int16_t>((theme * 4 + state) * 50), 480, 36},
+                            {.bluetooth = state == 0   ? BluetoothState::Disconnected
+                                          : state == 1 ? BluetoothState::Connected
+                                                       : BluetoothState::Connecting,
+                             .bluetoothVisible = state != 3,
+                             .theme = theme == 0 ? platform::ui::Theme::Light : platform::ui::Theme::Dark});
+                    }
+                }
+            }},
     Example{"BatteryIndicatorView", "themes", pageBounds, renderBatteryExamples},
     Example{"StatusBar", "dark-charging", statusBounds,
             [](Canvas& c, const Rect& b) {

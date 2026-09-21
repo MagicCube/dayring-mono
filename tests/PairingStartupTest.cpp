@@ -2,6 +2,7 @@
 #include <iostream>
 
 #include "apps/shell/ShellApplication.h"
+#include "apps/shell/components/StatusBarController.h"
 #include "platform/runtime/Shell.h"
 
 extern unsigned long testNowMs;
@@ -73,6 +74,29 @@ int main() {
         },
         platform::runtime::Residency::Resident));
     assert(shell.startServices());
+    apps::shell::components::StatusBarController statusBar;
+    (void)statusBar.update();
+    assert(!statusBar.update());
+    radioState = platform::ble::BLEService::State::Connected;
+    assert(statusBar.update());
+    testNowMs = 999;
+    assert(!statusBar.update());
+    testNowMs = 1000;
+    assert(statusBar.update());
+    assert(!statusBar.update());
+    testNowMs = 2000;
+    assert(statusBar.update());
+    radioState = platform::ble::BLEService::State::Secured;
+    assert(statusBar.update());
+    testNowMs = 3000;
+    assert(!statusBar.update());
+    radioState = platform::ble::BLEService::State::Advertising;
+    assert(statusBar.update());
+    testNowMs = 4000;
+    assert(!statusBar.update());
+    statusBar.setTheme(platform::ui::Theme::Dark);
+    assert(statusBar.update());
+    assert(!statusBar.update());
     assert(shell.openStartupPage());
     assert(shell.applicationManager().currentURL() == "app://shell/pairing");
     assert(!shell.applicationManager().allowsIdleLock());

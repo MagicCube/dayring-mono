@@ -7,6 +7,7 @@ Run the real firmware application/page rendering on macOS and capture a PNG for 
 ```sh
 make preview "app://shell/"
 ./tools/preview/preview capture 'app://shell/' --battery 85
+./tools/preview/preview capture 'app://shell/' --bluetooth disconnected
 ./tools/preview/preview capture 'app://shell/lock' --time 09:15
 make preview "app://typography/?article=display"
 ```
@@ -40,7 +41,7 @@ Use `--output path.png` to override the filename. Explicit relative output paths
 
 Top-level help introduces commands. Command help describes options. Application help discovers routes and parameter documentation from C++ registrations. `routes` initializes registered applications without entering their pages; application constructors and `onCreate` must support host initialization. Add route documentation alongside `router().registerPage(...)`, not in the CLI.
 
-Capture defaults are a complete 480 × 800 frame, the current local time, battery `75%`, and charging off. The CLI samples the host clock once immediately before rendering, after any build. Use `--battery 85` for 85%, and `--time HH:MM` for repeatable screenshots; `--battery-charging` enables the charging indicator. JSON results record the exact sampled time. Named isolated View examples keep their explicit Props. Fullscreen pages naturally hide the status bar. Quote URLs so shell metacharacters such as `&` and `#` remain part of the URL.
+Capture defaults are a complete 480 × 800 frame, the current local time, battery `75%`, charging off, and Bluetooth `connected`. The CLI samples the host clock once immediately before rendering, after any build. Use `--battery 85` for 85%, and `--time HH:MM` for repeatable screenshots; `--battery-charging` enables the charging indicator. JSON results record the exact sampled time. `--bluetooth connected|disconnected|connecting` sets the radio state seen by the real controllers. `connecting` captures the visible phase of the blinking symbol; the static preview clock does not animate. JSON results include `state.bluetooth`. The preview-only `native/HostBLE.cpp` adapter never opens the Mac radio, creates bonds, or starts an RPC session. Named isolated View examples keep their explicit Props. Fullscreen pages naturally hide the status bar. Quote URLs so shell metacharacters such as `&` and `#` remain part of the URL.
 
 `app://home` uses the production Home alias. `app://shell/lock` uses the production lock presentation. Unknown applications and paths fail rather than falling back to an unrelated screenshot. The host opens Home before the target to establish the lifecycle required by lock presentation.
 

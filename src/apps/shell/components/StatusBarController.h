@@ -15,7 +15,11 @@ class StatusBarController final : public platform::ui::ViewController {
     void render(platform::ui::Canvas& canvas, const platform::ui::Rect& bounds) override;
 
    private:
+    bool _updateBluetooth();
     StatusBar _view;
+    BluetoothState _bluetooth = BluetoothState::Disconnected;
+    bool _bluetoothVisible = true;
+    uint32_t _blinkAt = 0;
     platform::ui::Theme _theme = platform::ui::Theme::Light;
     bool _themeChanged = false;
     uint64_t _minuteRevision = 0;

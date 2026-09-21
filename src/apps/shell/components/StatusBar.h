@@ -4,11 +4,15 @@
 
 namespace apps::shell::components {
 
+enum class BluetoothState { Disconnected, Connecting, Connected };
+
 struct StatusBarProps {
     uint8_t hour = 12;
     uint8_t minute = 34;
     uint8_t percent = 75;
     bool charging = false;
+    BluetoothState bluetooth = BluetoothState::Disconnected;
+    bool bluetoothVisible = true;
     platform::ui::Theme theme = platform::ui::Theme::Light;
 };
 

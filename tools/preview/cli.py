@@ -44,11 +44,13 @@ def parser() -> Parser:
     capture = commands.add_parser("capture", help="Capture one exact URL to PNG", description=
                                   "Capture a complete 480x800 device frame. Quote URLs containing & or #.",
                                   epilog="Defaults: .preview/<app>[--<page>][--<query>].png; "
-                                  "current local time, battery 75%, charging off. Repeated inputs overwrite the same PNG.")
+                                  "current local time, battery 75%, charging off, Bluetooth connected. Repeated inputs overwrite the same PNG.")
     capture.add_argument("url", help="app://application/path?parameters")
     capture.add_argument("--output", type=Path, help="PNG path (relative paths use the current working directory)")
     capture.add_argument("--time", type=clock, help="Override current local time, HH:MM")
     capture.add_argument("--battery", type=battery, default=75, help="Battery percentage, 0..100")
+    capture.add_argument("--bluetooth", choices=("connected", "disconnected", "connecting"),
+                         default="connected", help="Bluetooth state (default: connected)")
     capture.add_argument("--power-press", action="store_true", help="Press power after opening the page")
     capture.add_argument("--battery-charging", action="store_true", help="Show the charging indicator")
     routes = commands.add_parser("routes", help="Discover shared firmware routes and the Home alias")
@@ -106,12 +108,12 @@ def default_output(resolved_url: str) -> Path:
 def capture(args: argparse.Namespace, executable: Path, cache_hit: bool) -> dict:
     capture_time = args.time or datetime.now().strftime("%H:%M")
     hour, minute = capture_time.split(":")
-    metadata, pixels = native(executable, ["capture", args.url, hour, minute, str(args.battery), str(int(args.battery_charging)), str(int(args.power_press))])
+    metadata, pixels = native(executable, ["capture", args.url, hour, minute, str(args.battery), str(int(args.battery_charging)), str(int(args.power_press)), args.bluetooth])
     if (metadata.get("width"), metadata.get("height"), metadata.get("format")) != (480, 800, "gray8"):
         raise PreviewError(5, "invalid_frame", "Expected a 480x800 gray8 framebuffer.")
     if len(pixels) != 480 * 800 or not isinstance(metadata.get("resolved_url"), str):
         raise PreviewError(5, "invalid_frame", "Incomplete framebuffer or resolved URL.")
-    state = {"time": capture_time, "battery": args.battery, "charging": args.battery_charging, "power_press": args.power_press}
+    state = {"time": capture_time, "battery": args.battery, "charging": args.battery_charging, "power_press": args.power_press, "bluetooth": args.bluetooth}
     output = (args.output or default_output(metadata["resolved_url"])).absolute()
     try:
         png.publish(output, png.encode(480, 800, pixels))
