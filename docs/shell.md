@@ -22,7 +22,7 @@
 
 ## Contracts
 
-- `runtime::Shell` owns ServiceManager, which starts FrontlightService, PowerService, TaskDispatchService, BLEService, RPCService, then TimeService and stops them in reverse order. Services are declared before applications so application handles are destroyed first. Service updates run before input dispatch and foreground updates, including while locked or refreshing; each loop permits eight task steps.
+- `runtime::Shell` owns ServiceManager, which starts FrontlightService, PowerService, TaskDispatchService, BLEService, RPCService, DeviceControlService, then TimeService and stops them in reverse order. Services are declared before applications so application handles are destroyed first. Service updates run before input dispatch and foreground updates, including while locked or refreshing; each loop permits eight task steps.
 - `runtime::Shell` owns manager/container and accesses PowerService through ServiceManager. `ShellApplication` is a resident application owning page controllers. Use the facade for production opens; direct manager calls bypass home/lock URL policy.
 - Lock temporarily presents outside navigation history; unlock restores the same instance/location, including when interrupting Shell itself. Power timing belongs in [HAL](hal.md).
 - Input/update continue during refresh. Input priority: power press, completed single-contact swipe, completed tap release. Runtime converts both swipe endpoints to logical portrait coordinates.

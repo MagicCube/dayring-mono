@@ -36,6 +36,26 @@ Use these code maps to locate implementation; load only the relevant map, then r
 | Font slots, character coverage, generation and registration | [Fonts](docs/fonts.md) |
 | Hardware ownership, initialization and refresh completion | [HAL](docs/hal.md) |
 
+## Device Administration CLI
+
+Use the project CLI for pairing-debug resets and software restarts. Stop any running `dev-server` first; the peripheral accepts one connection. Find the Core Bluetooth device UUID with `./tools/dayring-cli/dayring-cli dev-server --list`.
+
+```sh
+./tools/dayring-cli/dayring-cli reset-pairing --device DEVICE_UUID
+./tools/dayring-cli/dayring-cli reboot --device DEVICE_UUID
+# Recover the Mac side if the ESP32 has already erased its bond and cannot reconnect:
+./tools/dayring-cli/dayring-cli reset-pairing --device DEVICE_UUID --mac-only
+```
+
+- Both administrative commands require an explicit `--device` UUID. Never replace targeted removal with a global macOS Bluetooth reset, deletion of Bluetooth preference files, or an ESP32 full-NVS erase.
+- `reset-pairing` preflights macOS removal support, invokes RPC `pairing.reset` (method 6), polls until the ESP32 confirms its persisted BLE keys/subscriptions are cleared, stops reconnection, and removes/verifies the selected macOS bond. It clears **all peers stored on that ESP32**, but only that ESP32's bond on this Mac. The device then restarts to discard volatile security state and enter the normal unpaired startup flow.
+- `reboot` invokes RPC `device.reboot` (method 7) and preserves bonds and other persistent data. The response acknowledges scheduling; firmware allows one second for delivery and waits for any active e-ink refresh to finish before `esp_restart()`.
+- These commands require a secure, RPC-ready connection, except `--mac-only`, which never contacts the ESP32. A broken pre-existing bond may require Mac-only removal and a fresh pairing before the full reset can run.
+- macOS unpairing uses capability-checked private Core Bluetooth selectors isolated in `DayringCLI/MacPairingStore.swift`; do not move them into the reusable iOS library. If unavailable or verification fails, report the error and use System Settings > Bluetooth > Forget This Device. Never report a complete two-sided reset from a disconnect alone.
+- Reset/reboot requests are not automatically replayed. An error can represent a partial reset; follow the CLI's recovery instructions. Running either command changes device state and is not part of routine build/test verification.
+- RPC method IDs 0–7 are reserved; custom application methods start at 8. Wire contracts and limitations are in [RPC](docs/rpc.md).
+- Validate changes with `make test-device-control test-ble-service test-cli-administration`. The CLI tests use a fake pairing store and never erase real bonds or reboot hardware.
+
 ## UI Design Principles
 
 - The visual direction is Nothing + Teenage Engineering: restrained, functional, instrument-like interfaces with deliberate typography, precise alignment, strong hierarchy, and generous negative space.

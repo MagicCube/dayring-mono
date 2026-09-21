@@ -10,6 +10,7 @@
 | Runtime frontlight control | `services/FrontlightService.h/.cpp` | `start`, `brightness`, `setBrightness`, `turnOn`, `turnOff` |
 | Runtime power policy | `services/PowerService.h/.cpp` | `start`, `update`, `notifyActivity`, `setLocked` |
 | Frontlight driver and boot feedback | `Frontlight.h`, `Frontlight.cpp` | `beginFrontlight`, `setFrontlightBrightness`, `frontlightBrightness` |
+| Deferred software restart and administrative RPC | `services/DeviceControlService.*`, `Restart.*` | `update`, `restartDevice` |
 | RTC initialization/read policy | `RtcClock.cpp` | `initializeRtc`, `clockTime` |
 | USB firmware upload handshake | `FirmwareUpload.cpp` | `beginFirmwareUpload`, `pollFirmwareUpload` |
 

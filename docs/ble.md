@@ -6,7 +6,7 @@
 | --- | --- |
 | Service ownership and startup | `src/platform/runtime/services/ServiceManager.cpp`, `ble()` |
 | Peripheral host, advertising, SMP, encrypted status, lifecycle | `src/platform/ble/services/BLEService.cpp` |
-| Public state and stored bond count | `src/platform/ble/services/BLEService.h` |
+| Public state, stored bond count and asynchronous erasure | `src/platform/ble/services/BLEService.h` |
 | Firmware service and status UUIDs | `src/platform/ble/BLEProfile.h` |
 | Shared Apple central | `tools/dayring-cli/Sources/DayringBLE/BLECentral.swift` |
 | Apple UUIDs and status response | `tools/dayring-cli/Sources/DayringBLE/DeviceProfile.swift` |
@@ -52,3 +52,7 @@ For hardware acceptance:
 6. Check rejected pairing, remote disconnection, and Bluetooth-off handling. Verify a second unrelated saved bond does not authorize the current connection.
 
 The implementation was compiled for ESP32-S3 and the shared Swift library type-checked for iOS. The user verified first-time pairing on physical hardware: the CLI reported PAIRED and the device automatically entered Home. After restarting the device, it bypassed setup and the CLI again reported PAIRED, confirming retained bonding and encrypted reconnection. Physical iOS testing remains pending.
+
+## Development pairing reset
+
+`BLEService::clearBonds()` submits an explicit store-clear operation to the NimBLE host queue; `bondResetState()` exposes pending, complete or failed status to DeviceControlService. It clears BLE storage only, verifies security/CCCD record counts, and retains the encrypted link briefly for the RPC status reply. A successful reset suppresses advertising and is followed by a display-safe software restart. Ordinary disconnect, shutdown and firmware upload still preserve bonds. See [device administration](rpc.md#device-administration) and the repository `AGENTS.md` for targeted CLI commands and partial-reset recovery.

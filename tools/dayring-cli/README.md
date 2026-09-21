@@ -49,6 +49,7 @@ Central/peripheral roles determine connection initiation, not RPC direction. RPC
 
 ```sh
 swift test --package-path tools/dayring-cli --scratch-path .cache/dayring-cli
+make test-rpc-interop test-cli-administration
 ./tools/dayring-cli/dayring-cli --help
 ```
 
@@ -62,4 +63,24 @@ After pairing, the CLI subscribes to RPC notifications, completes hello, verifie
 
 Timezone identifiers and current offsets are monitored every ten seconds while the peer is active. Travel and DST changes notify the device to resynchronize; the paired device does not have to wait eight hours. Timezone settings and synchronization timestamps are currently RAM-only on ESP32. Suspended iOS apps cannot promise continuous background service; reconnect/resume refreshes the current state.
 
-`RPCPeer` provides reusable bidirectional requests, handlers, timeouts and cancellation. `BLECentral.requestRPC`, `cancelRPC`, and `registerRPCHandler` expose it through BLE. Custom method IDs start at 6. The small-message wire contract, GATT UUIDs, capacity bounds and service ownership are in [RPC and time](../../docs/rpc.md).
+`RPCPeer` provides reusable bidirectional requests, handlers, timeouts and cancellation. `BLECentral.requestRPC`, `cancelRPC`, and `registerRPCHandler` expose it through BLE. Custom method IDs start at 8. Requests and responses each accept up to 10,240 bytes after capability negotiation. Larger messages are automatically fragmented with bounded buffering and per-fragment flow control; short messages retain their single-packet path. The default request deadline is 120 seconds and can be overridden; hello, write acknowledgments and clock sync retain five-second limits. Upgrade firmware and the CLI together. The wire contract, GATT UUIDs, capacity bounds and service ownership are in [RPC and time](../../docs/rpc.md).
+
+## Device administration
+
+Stop `dev-server` first, then use the exact Core Bluetooth UUID shown by `dev-server --list`:
+
+```sh
+./tools/dayring-cli/dayring-cli reset-pairing --device DEVICE_UUID
+./tools/dayring-cli/dayring-cli reboot --device DEVICE_UUID
+./tools/dayring-cli/dayring-cli reset-pairing --device DEVICE_UUID --mac-only
+```
+
+`reset-pairing` clears every peer bond stored on the selected ESP32, confirms persisted erasure over RPC, removes only that device's bond from this Mac, and schedules a device restart. It does not erase unrelated Mac pairings or other ESP32 NVS data. macOS removal is preflighted and verified through a capability-checked private pairing-agent interface in the CLI; this is a development utility, not a portable public Core Bluetooth API. If the OS denies the operation, use System Settings > Bluetooth > Forget This Device.
+
+`--mac-only` recovers a partial reset without connecting to ESP32. Use it if the device has already lost its bond but macOS still holds the old keys. Reconnect and pair afresh before retrying the full reset if needed. Reset is not atomic across systems: errors report whether device erasure was confirmed and return exit code 1. No administrative operation is automatically replayed.
+
+`reboot` sends an empty `device.reboot` request (method 7), prints acceptance, and exits without reconnecting. The firmware waits at least one second and for any active e-ink refresh before restarting. Bonds are retained. Acceptance does not prove that a later boot succeeded.
+
+The reset method is `pairing.reset` (6): empty payload starts erasure; `[1]` polls status; `[0]` response is pending, `[1]` is erased, remote error 7 is failure. Polling is scoped to the requesting RPC session. The CLI uses five-second request deadlines and a bounded operation deadline (`--timeout`, default 20 seconds after RPC readiness). A timed-out reset may have completed remotely; do not infer an unchanged device from a lost response.
+
+Automated administration tests use fakes and do not modify this Mac's bonds or reboot a real ESP32. Physical erasure/restart behavior and OS-specific unpairing permissions must be verified separately when deliberately exercising those commands.
