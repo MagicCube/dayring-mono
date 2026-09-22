@@ -45,7 +45,9 @@ waveforms, or grayscale refresh cadence are used.
 
 HAL `begin()` initializes the dedicated USB CDC control channel without waiting for a host. HAL `update()` polls `FirmwareUpload.cpp` after servicing display completion on every loop, including while a refresh is pending. The main loop starts after Shell initialization. `DAYRING PREPARE_UPDATE` → `DAYRING PREPARING` → `DAYRING READY`; READY requires physical frame completion. Input polling is bounded.
 
-`tools/platformio-firmware-update/platformio-firmware-update.py` retries preparation because opening native USB can reset the board. Before recognition, missing support/serial errors allow normal upload; after PREPARING, timeout/disconnect aborts upload to protect refresh. Older firmware cannot prepare the screen; failed uploads may leave it visible until reboot.
+`tools/platformio-firmware-update/platformio-firmware-update.py` requires screen preparation before firmware upload. It allows 30 seconds for startup and retries serial connections before recognition because opening native USB can reset the board. After PREPARING, it allows 15 seconds for physical refresh; timeout or disconnect aborts upload. Missing support, missing fonts, and unavailable serial ports also stop normal firmware uploads instead of silently skipping the screen. Failed uploads may leave it visible until reboot.
+
+Filesystem provisioning (`make fs:upload`) skips preparation so missing fonts can be recovered. Complete it successfully before the first firmware upload and whenever font assets change. For first installation, older firmware without handshake support, or bootloader recovery only, `DAYRING_SKIP_UPDATE_SCREEN=1 make upload` explicitly bypasses the screen requirement; it does not bypass the filesystem prerequisite. Normal uploads must use `make upload`.
 
 Config: `platformio.ini`. Firmware uploads do not inject host time or modify a valid RTC. `make build`/`make upload` also format unrelated sources.
 

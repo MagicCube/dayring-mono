@@ -12,6 +12,9 @@ SCRIPT = Path(__file__).resolve().parents[1] / 'tools/platformio-firmware-update
 
 class FirmwareUploadHookTest(unittest.TestCase):
     def setUp(self):
+        self.environment = patch.dict("os.environ", {}, clear=True)
+        self.environment.start()
+        self.addCleanup(self.environment.stop)
         self.env = Mock()
         self.env.subst.return_value = '/dev/fake'
         scope = runpy.run_path(str(SCRIPT), init_globals={'Import': lambda _: None, 'env': self.env})
@@ -33,16 +36,16 @@ class FirmwareUploadHookTest(unittest.TestCase):
     def test_timeout(self):
         self.device.readline.return_value = b''
         with patch('serial.Serial', return_value=self.device), patch.dict(
-            self.callback.__globals__, monotonic=Mock(side_effect=itertools.count(0, 0.1))
+            self.callback.__globals__['prepare_screen'].__globals__, monotonic=Mock(side_effect=itertools.count(0, 0.1))
         ), contextlib.redirect_stdout(io.StringIO()) as output:
-            self.callback(None, None, self.env)
-        self.assertIn('continuing with normal upload', output.getvalue())
+            self.assertEqual(self.callback(None, None, self.env), 1)
+        self.assertIn('upload stopped', output.getvalue())
         self.device.__exit__.assert_called_once()
 
     def test_startup_delay_retries_and_partial_reply(self):
         self.device.readline.side_effect = [b'boot\n'] * 6 + [b'DAYRING PRE', b'PARING\r\n', b'DAYRING READY\n']
         with patch('serial.Serial', return_value=self.device), patch.dict(
-            self.callback.__globals__, monotonic=Mock(side_effect=itertools.count(0, 0.1))
+            self.callback.__globals__['prepare_screen'].__globals__, monotonic=Mock(side_effect=itertools.count(0, 0.1))
         ), contextlib.redirect_stdout(io.StringIO()) as output:
             self.assertIsNone(self.callback(None, None, self.env))
         self.assertGreater(self.device.write.call_count, 1)
@@ -51,7 +54,7 @@ class FirmwareUploadHookTest(unittest.TestCase):
     def test_accepted_timeout_blocks_upload(self):
         self.device.readline.side_effect = itertools.chain([b'DAYRING PREPARING\n'], itertools.repeat(b''))
         with patch('serial.Serial', return_value=self.device), patch.dict(
-            self.callback.__globals__, monotonic=Mock(side_effect=itertools.count(0, 0.1))
+            self.callback.__globals__['prepare_screen'].__globals__, monotonic=Mock(side_effect=itertools.count(0, 0.1))
         ), contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(self.callback(None, None, self.env), 1)
         self.device.write.assert_called_once()
@@ -62,9 +65,39 @@ class FirmwareUploadHookTest(unittest.TestCase):
             self.assertEqual(self.callback(None, None, self.env), 1)
 
     def test_busy_port(self):
-        with patch('serial.Serial', side_effect=OSError('busy')), contextlib.redirect_stdout(io.StringIO()) as output:
-            self.callback(None, None, self.env)
-        self.assertIn('Continuing with normal upload', output.getvalue())
+        with patch('serial.Serial', side_effect=OSError('busy')), patch.dict(
+            self.callback.__globals__['prepare_screen'].__globals__,
+            monotonic=Mock(side_effect=itertools.count(0, 1)), sleep=Mock()
+        ), contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(self.callback(None, None, self.env), 1)
+        self.assertIn('upload stopped', output.getvalue())
+
+    def test_reconnect_before_acceptance(self):
+        self.device.readline.side_effect = [b'DAYRING PREPARING\n', b'DAYRING READY\n']
+        with patch('serial.Serial', side_effect=[OSError('USB reset'), self.device]), patch.dict(
+            self.callback.__globals__['prepare_screen'].__globals__, sleep=Mock()
+        ):
+            self.assertIsNone(self.callback(None, None, self.env))
+        self.assertEqual(self.env.AutodetectUploadPort.call_count, 2)
+
+    def test_slow_startup(self):
+        self.device.readline.side_effect = [b'boot\n'] * 20 + [b'DAYRING PREPARING\n', b'DAYRING READY\n']
+        with patch('serial.Serial', return_value=self.device), patch.dict(
+            self.callback.__globals__['prepare_screen'].__globals__,
+            monotonic=Mock(side_effect=itertools.count(0, 0.25))
+        ):
+            self.assertIsNone(self.callback(None, None, self.env))
+        self.assertGreater(self.device.write.call_count, 4)
+
+    def test_filesystem_provisioning_skips_screen(self):
+        with patch('serial.Serial') as serial_port:
+            self.assertIsNone(self.callback(None, ['uploadfs'], self.env))
+        serial_port.assert_not_called()
+
+    def test_explicit_recovery_skips_screen(self):
+        with patch.dict('os.environ', DAYRING_SKIP_UPDATE_SCREEN='1'), patch('serial.Serial') as serial_port:
+            self.assertIsNone(self.callback(None, ['upload'], self.env))
+        serial_port.assert_not_called()
 
 
 if __name__ == '__main__':
