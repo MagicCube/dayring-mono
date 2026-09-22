@@ -1,0 +1,13 @@
+{
+  "namespace": "apps::shell::icons",
+  "size": 11,
+  "threshold": 0.23,
+  "icons": [
+    {"name": "Clear", "fill": "black", "layers": [{"svg": "sun.svg"}]},
+    {"name": "PartlyCloudy", "layers": [{"svg": "cloud-sun.svg"}]},
+    {"name": "Cloudy", "layers": [{"svg": "cloud.svg"}]},
+    {"name": "Rain", "layers": [{"svg": "cloud-rain.svg"}]},
+    {"name": "Thunderstorm", "layers": [{"svg": "zap.svg"}]},
+    {"name": "Snow", "layers": [{"svg": "snowflake.svg"}]}
+  ]
+}
