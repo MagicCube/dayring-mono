@@ -46,7 +46,7 @@ VIEW_SOURCES = [
 
 
 def source_files(target: str = "route") -> list[Path]:
-    shared = [ROOT / "src/platform/fonts/Fonts.cpp", UI / "src/FreeInkUI.cpp",
+    shared = [*ROOT.glob("src/platform/fonts/*.cpp"), UI / "src/FreeInkUI.cpp",
               NATIVE / "FrameBuffer.cpp"]
     if target == "view":
         return sorted([*VIEW_SOURCES, *shared, NATIVE / "ViewMain.cpp"])
@@ -91,7 +91,7 @@ def configuration(target: str = "route") -> tuple[str, list[str], str]:
     includes = [NATIVE / "include", ROOT / "src", UI / "include", RTC]
     if target == "view":
         includes = [ROOT / "src", UI / "include"]
-    flags = ["-std=c++20", "-O2", "-Wall", "-Wextra", "-Werror", "-fno-exceptions",
+    flags = ["-isystem", str(ROOT / "freeink-sdk/libs/book/FreeInkBook/third_party/miniz"), "-std=c++20", "-O2", "-Wall", "-Wextra", "-Werror", "-fno-exceptions",
              *["-I" + str(path) for path in includes],
              *(home_flags() if target == "route" else [])]
     environment = {key: os.environ.get(key, "") for key in

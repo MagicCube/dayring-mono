@@ -51,7 +51,7 @@ bool hasFrame() {
 namespace platform::hal {
 
 Framebuffer framebuffer() {
-    return {preview::framePixels(), 800, 480, 100, preview::grayPixels()};
+    return {preview::framePixels(), 800, 480, 100};
 }
 
 bool displayReady() {

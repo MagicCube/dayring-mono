@@ -75,7 +75,7 @@ def parser() -> Parser:
 
 def native(executable: Path, arguments: list[str]) -> tuple[dict, bytes]:
     try:
-        result = subprocess.run([str(executable), *arguments], capture_output=True, timeout=30)
+        result = subprocess.run([str(executable), *arguments], capture_output=True, timeout=30, cwd=ROOT)
     except (OSError, subprocess.TimeoutExpired) as error:
         raise PreviewError(5, "renderer_unavailable", str(error)) from error
     if result.stderr:

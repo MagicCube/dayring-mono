@@ -9,13 +9,7 @@ std::array<uint8_t, 800 * 480 / 8>& framePixels() {
     return pixels;
 }
 
-std::array<uint8_t, 800 * 480>& grayPixels() {
-    static std::array<uint8_t, 800 * 480> pixels;
-    return pixels;
-}
-
 void resetFrame() {
-    grayPixels().fill(255);
     framePixels().fill(0xFF);
 }
 
@@ -26,7 +20,7 @@ std::vector<uint8_t> portraitPixels() {
             // Inverse of DisplayTarget's Portrait logical-to-native mapping.
             const int nativeX = y;
             const int nativeY = 479 - x;
-            result[y * 480 + x] = grayPixels()[nativeY * 800 + nativeX];
+            result[y * 480 + x] = (framePixels()[nativeY * 100 + nativeX / 8] & (0x80u >> (nativeX % 8))) ? 255 : 0;
         }
     }
     return result;

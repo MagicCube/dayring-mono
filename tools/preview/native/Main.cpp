@@ -8,6 +8,7 @@
 #include "HostCalendar.h"
 #include "HostHardware.h"
 #include "apps/RegisterApplications.h"
+#include "platform/fonts/Fonts.h"
 #include "platform/runtime/Shell.h"
 
 namespace {
@@ -93,6 +94,7 @@ int capture(Shell& shell, char** argv, bool powerPress, uint8_t lockTaps) {
         !number(argv[6], 1, charging))
         return fail(2, "invalid_state", "Invalid hour, minute, battery, or charging state.");
     preview::configureHardware(hour, minute, battery, charging != 0);
+    if (!platform::fonts::loadFonts()) return fail(5, "font_load_failed", "Cannot load data/fonts assets.");
     if (!shell.startServices()) return fail(5, "service_start_failed", "Service startup failed.");
     const auto target = Shell::resolveURL(argv[2]);
     if (!target) return routeFailure(RouteError::InvalidURL);

@@ -138,8 +138,8 @@ int main(int argc, char** argv) {
         preview::resetFrame();
         freeink::ui::DisplayTarget canvas(preview::framePixels().data(), 800, 480, 100,
                                           freeink::ui::Orientation::Portrait);
-        canvas.setGrayPreview(preview::grayPixels().data());
-        platform::fonts::registerFonts(canvas);
+        if (!platform::fonts::loadFonts() || !platform::fonts::registerFonts(canvas))
+            return fail("font_load_failed", "Cannot load data/fonts assets.");
         example.render(canvas, example.bounds);
         return preview::writeFrame("");
     }

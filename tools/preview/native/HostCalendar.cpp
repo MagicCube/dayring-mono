@@ -34,24 +34,24 @@ class MockCalendarStorage final : public platform::calendar::CalendarStorage {
         const auto tomorrow = today + days{1};
         std::string events;
         if (scenario == "all-day") {
-            events = event("all-day", "Amy's Birthday", "", timestamp(tomorrow, "00:00"),
+            events = event("all-day", "秋分 Autumn Equinox", "", timestamp(tomorrow, "00:00"),
                            timestamp(today + days{2}, "00:00"), true) +
                      ",";
         }
-        events +=
-            event("past", "Earlier meeting", "Office", timestamp(today, "10:00"), timestamp(today, "11:00")) + ",";
-        const auto title = scenario == "long-title" ? "A Very Long Title Test - if any" : "Hangout with Siyu";
+        events += event("past", "早间 Meeting", "Office", timestamp(today, "10:00"), timestamp(today, "11:00")) + ",";
+        const auto title = scenario == "long-title" ? "中英文混排 Long Title Test - 超长标题显示测试" : "和 Siyu 小聚";
         const auto location = scenario == "long-title" ? "Skytown, Building A, Meeting Room 1208" : "FanCity";
         events += event("today-1", title, location, timestamp(today, "14:00"), timestamp(today, "15:00")) + ",";
-        events += event("today-2", "Dinner Time", "Home", timestamp(today, "18:00"), timestamp(today, "19:00")) + ",";
-        events += event("tomorrow-all-day", "Tomorrow holiday", "", timestamp(tomorrow, "00:00"),
+        events +=
+            event("today-2", "晚餐 Dinner Time", "Home", timestamp(today, "18:00"), timestamp(today, "19:00")) + ",";
+        events += event("tomorrow-all-day", "假日 Holiday", "", timestamp(tomorrow, "00:00"),
                         timestamp(today + days{2}, "00:00"), true) +
                   ",";
-        events += event("tomorrow-1", "Morning catch-up", "Corner Cafe", timestamp(tomorrow, "09:00"),
+        events += event("tomorrow-1", "晨间 Morning catch-up", "Corner Cafe", timestamp(tomorrow, "09:00"),
                         timestamp(tomorrow, "10:00")) +
                   ",";
-        events +=
-            event("tomorrow-2", "Project review", "Studio", timestamp(tomorrow, "11:00"), timestamp(tomorrow, "12:00"));
+        events += event("tomorrow-2", "项目 Project review", "Studio", timestamp(tomorrow, "11:00"),
+                        timestamp(tomorrow, "12:00"));
         return "{\"schemaVersion\":1,\"generatedAt\":\"" + timestamp(today, "00:00") +
                "\",\"timeZone\":\"Etc/UTC\",\"windowStart\":\"" + timestamp(today, "00:00") +
                "\",\"windowEndExclusive\":\"" + timestamp(today + days{2}, "00:00") + "\",\"events\":[" + events + "]}";

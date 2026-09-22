@@ -98,7 +98,6 @@ void testOrientation() {
     const auto frame = platform::hal::framebuffer();
     freeink::ui::DisplayTarget target(frame.pixels.data(), frame.width, frame.height, frame.strideBytes,
                                       freeink::ui::Orientation::Portrait);
-    target.setGrayPreview(frame.grayPreview.data());
     target.fill({20, 120, 1, 1}, freeink::ui::Paint::solid(freeink::ui::Color::LightGray));
     assert(target.logicalWidth() == 480 && target.logicalHeight() == 800);
     target.fill({0, 0, 1, 1}, freeink::ui::Paint::solid(freeink::ui::Color::Black));
@@ -106,7 +105,23 @@ void testOrientation() {
     target.fill({17, 123, 1, 1}, freeink::ui::Paint::solid(freeink::ui::Color::Black));
     const auto pixels = preview::portraitPixels();
     assert(pixels[0] == 0 && pixels.back() == 0 && pixels[123 * 480 + 17] == 0);
-    assert(pixels[120 * 480 + 20] == 170);
+    assert(pixels[120 * 480 + 20] == 0);
+    // Gray on black must write white dots, the regression fixed by SDK c91d8e5.
+    target.fill({40, 120, 8, 4}, freeink::ui::Paint::solid(freeink::ui::Color::Black));
+    target.fill({40, 120, 4, 4}, freeink::ui::Paint::solid(freeink::ui::Color::LightGray));
+    target.fill({44, 120, 4, 4}, freeink::ui::Paint::solid(freeink::ui::Color::DarkGray));
+    const auto dither = preview::portraitPixels();
+    for (int block = 0; block < 2; ++block) {
+        int white = 0;
+        for (int y = 120; y < 124; ++y) {
+            for (int x = 40 + block * 4; x < 44 + block * 4; ++x) {
+                const auto value = dither[y * 480 + x];
+                assert(value == 0 || value == 255);
+                white += value == 255;
+            }
+        }
+        assert(white == (block == 0 ? 12 : 4));
+    }
     assert(pixels[1] == 255 && pixels[479] == 255 && pixels[799 * 480] == 255);
 }
 

@@ -147,8 +147,9 @@ class PreviewTest(unittest.TestCase):
         self.assertEqual(baseline[:480 * 320], empty[:480 * 320])
         self.assertNotEqual(baseline[480 * 320:480 * 760], empty[480 * 320:480 * 760])
         # Four future candidates in the fixture still produce only three left-hand rules.
-        rules = [baseline[y * 480 + 32] == 255 for y in range(320, 760)]
-        self.assertEqual(sum(value and (i == 0 or not rules[i - 1]) for i, value in enumerate(rules)), 3)
+        # Group visible marker rows across gaps no larger than a Bayer tile.
+        rules = [y for y in range(320, 760) if baseline[y * 480 + 32] == 255]
+        self.assertEqual(sum(i == 0 or y - rules[i - 1] > 4 for i, y in enumerate(rules)), 3)
         long_title = decode(self.capture("app://shell/lock", "--calendar", "long-title", "--time", "13:40")["output"])[2]
         # The long title changes its first row, while the second-line time and later rows stay fixed.
         self.assertNotEqual(baseline, long_title)
@@ -161,7 +162,7 @@ class PreviewTest(unittest.TestCase):
         lengths = []
         active = 0
         for y in range(320, 800):
-            if priority[y * 480 + 32] == 255:
+            if any(priority[y * 480 + x] == 255 for x in range(32, 36)):
                 active += 1
             elif active:
                 lengths.append(active)
