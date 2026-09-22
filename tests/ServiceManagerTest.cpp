@@ -39,6 +39,7 @@ class ProbeService final : public Service {
         assert(_manager.frontlight().isRunning() && _manager.power().isRunning() && _manager.time().isRunning());
         assert(_manager.ble().isRunning());
         assert(_manager.calendar().isRunning());
+        assert(_manager.weather().isRunning() && !_manager.weather().report());
         assert(_manager.ble().state() == platform::ble::BLEService::State::Unavailable);
         assert(!_manager.begin());
         _events.push_back(_id);

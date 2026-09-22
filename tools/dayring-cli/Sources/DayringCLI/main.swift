@@ -19,6 +19,8 @@ setbuf(stdout, nil)
 let central = BLECentral(profile: DeviceProfile(serviceUUID: options.service, peripheralID: options.device))
 let calendarRunner = options.command == .devServer && !options.listOnly && options.verifyPairing
     ? CalendarRunner(central: central) : nil
+let weatherRunner = options.command == .devServer && !options.listOnly && options.verifyPairing
+    ? WeatherRunner(central: central) : nil
 var finished = false
 var exitCode: Int32 = 0
 let pairingStore = options.command == .resetPairing ? MacPairingStore() : nil
@@ -51,6 +53,7 @@ central.onEvent = { event in
         if let administration { administration.fail(message) } else { finished = true }
     case .rpcReady(let id):
         calendarRunner?.ready()
+        weatherRunner?.ready()
         administration?.rpcReady(identifier: id)
     case .rpcStatus(let status): print(status)
     case .stopped: if administration == nil { finished = true }
@@ -72,6 +75,7 @@ while !finished {
     RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.1))
     administration?.update()
     calendarRunner?.update()
+    weatherRunner?.update()
 }
 withExtendedLifetime(signals) {}
 exit(exitCode)

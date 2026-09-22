@@ -98,3 +98,11 @@ Every event has only `instanceId`, `title`, `location`, `start`, `end`, and `isA
 Normal `dev-server` starts the calendar provider automatically. EventKit queries run off the main queue. Device pull uses `calendar.begin` (8) followed by `calendar.read` (10) for immutable JSON chunks; Mac pushes only empty `calendar.changed` (9) requests after a relevant normalized change. ESP32 CalendarService implements the client and method-9 handler; Lock-screen integration and a physical BLE pull/save-state readback have been verified; Home integration remains pending. Existing firmware can continue clock synchronization and reports unknown-method for calendar notifications, which the CLI suppresses for the rest of that session. After serving the final chunk, the CLI reads `calendar.status` (11) and prints device sync/save state and counts without event contents. See [Calendar contract](../../docs/calendar.md#implemented-cli-contract) for payloads, busy/error handling, retry and safety budgets.
 
 `--help`, `dev-server --list`, `--connect-only`, reset, and reboot do not request calendar access. `make test-cli-calendar` tests synthetic calendars and RPC state without reading personal events or operating hardware.
+
+## Device-requested weather
+
+Normal `dev-server` serves `weather.get` (12). Each ESP32 request temporarily fetches `https://wttr.in/?format=j1`; wttr.in resolves the requesting public IP to a city. No Core Location or location permission is used. VPN/proxy routing can change the returned city.
+
+The ephemeral URLSession disables local caching and returns current WWO condition code, today's minimum and maximum Celsius temperatures, and the API's nearest city name. There is no CLI weather timer, prefetch or retained weather cache. HTTP failure and invalid weather data return RPC failure. Logs label the HTTP stage, its 30-second request / 45-second resource timeouts, and error domain/code.
+
+ESP32 WeatherService owns the hourly pull schedule and the optional report and a daily FATFS cache. On reboot, a date-matching cache is displayed before the connected refresh. The lock screen displays the latest report. See [weather wire contract and cache policy](../../docs/weather.md). Run `make test-cli-weather test-rpc-interop` for synthetic tests without HTTP requests or hardware changes.

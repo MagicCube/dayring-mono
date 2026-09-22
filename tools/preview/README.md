@@ -111,3 +111,7 @@ Use `capture app://shell/lock --lock-taps 1` to preview the first wake interacti
 On Lock, the first tap only lights the screen for eight seconds. A second tap renews the eight-second light window and shows `Swipe up to unlock` for five seconds in the charging-status line; charging text returns afterward, or the line becomes empty. Calendar rows remain visible and stable. Combine `--lock-taps 2 --battery-charging` to verify hint/charging exclusivity.
 
 Native captures load all eight generated `data/fonts/*.bin` assets before rendering, using the same validated loader as firmware. Missing or invalid assets report `font_load_failed`; run `python3 tools/generate-fonts/generate-fonts.py` to regenerate them. Captures do not read or embed C++ font tables.
+
+## Local weather fixture
+
+`preview capture app://shell/lock --weather sample --calendar sample --time 13:40` feeds a synthetic `Sunny`, `16 - 22°` report through the native BLE/RPC adapter into the real WeatherService. The initial empty frame is rendered first; the response must trigger controller invalidation to appear. `--weather empty` is the default and renders `--` on both lines. No location permission, network request or production mock route is involved. Captures with charging on/off share the same weather bounds.

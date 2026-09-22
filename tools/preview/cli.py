@@ -51,6 +51,8 @@ def parser() -> Parser:
     capture.add_argument("--battery", type=battery, default=75, help="Battery percentage, 0..100")
     capture.add_argument("--calendar", choices=("empty", "sample", "long-title", "all-day"), default="empty",
                          help="Local calendar mock; never reads a personal calendar or device")
+    capture.add_argument("--weather", choices=("empty", "sample"), default="empty",
+                         help="Synthetic weather via the native RPC peer; no location or HTTP access")
     capture.add_argument("--bluetooth", choices=("connected", "disconnected", "connecting"),
                          default="connected", help="Bluetooth state (default: connected)")
     capture.add_argument("--lock-taps", type=int, choices=(0, 1, 2), default=0,
@@ -112,12 +114,12 @@ def default_output(resolved_url: str) -> Path:
 def capture(args: argparse.Namespace, executable: Path, cache_hit: bool) -> dict:
     capture_time = args.time or datetime.now().strftime("%H:%M")
     hour, minute = capture_time.split(":")
-    metadata, pixels = native(executable, ["capture", args.url, hour, minute, str(args.battery), str(int(args.battery_charging)), str(int(args.power_press)), args.bluetooth, args.calendar, str(args.lock_taps)])
+    metadata, pixels = native(executable, ["capture", args.url, hour, minute, str(args.battery), str(int(args.battery_charging)), str(int(args.power_press)), args.bluetooth, args.calendar, str(args.lock_taps), args.weather])
     if (metadata.get("width"), metadata.get("height"), metadata.get("format")) != (480, 800, "gray8"):
         raise PreviewError(5, "invalid_frame", "Expected a 480x800 gray8 framebuffer.")
     if len(pixels) != 480 * 800 or not isinstance(metadata.get("resolved_url"), str):
         raise PreviewError(5, "invalid_frame", "Incomplete framebuffer or resolved URL.")
-    state = {"time": capture_time, "battery": args.battery, "charging": args.battery_charging, "power_press": args.power_press, "bluetooth": args.bluetooth, "calendar": args.calendar, "lock_taps": args.lock_taps}
+    state = {"time": capture_time, "battery": args.battery, "charging": args.battery_charging, "power_press": args.power_press, "bluetooth": args.bluetooth, "calendar": args.calendar, "lock_taps": args.lock_taps, "weather": args.weather}
     output = (args.output or default_output(metadata["resolved_url"])).absolute()
     try:
         png.publish(output, png.encode(480, 800, pixels))

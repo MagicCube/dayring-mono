@@ -10,6 +10,7 @@
 | Page stack and lifecycle | `ApplicationNavigation.cpp` | `_navigate`, `pop`, `_resume`, `_suspend` |
 | Lock presentation mechanics | `ApplicationManager.cpp` | `_interrupt`, `_restore` |
 | Shared time and display revisions | `../time/services/TimeService.h/.cpp` | `time`, `displayTime`, `minuteRevision` |
+| Weather report and hourly pull | `../weather/services/WeatherService.h/.cpp` | `report`, `syncState` |
 | Callback reentrancy | `TransitionGuard.h` | `TransitionGuard` |
 
 ## Contracts
@@ -34,7 +35,7 @@ Checks: `make test-application-manager test-navigation test-preview`.
 
 ## Services
 
-`ServiceManager` is the service owner and startup runner. Its constructor installs FrontlightService, PowerService, TaskDispatchService, BLEService, RPCService, DeviceControlService, TimeService, then CalendarService; add later services in dependency order before the first `begin()`. Pass dependencies through constructors and keep typed borrowed references; no dependency graph or automatic sorting is involved. Future services follow these built-ins. Every service must live in its owning domain's `services/` directory: hardware services in `hal/services/`, task dispatch in `tasking/services/`, time in `time/services/`, and the lifecycle framework in `runtime/services/`. BLEService lives in `ble/services/`; RPCService lives in `rpc/services/`; CalendarService lives in `calendar/services/`. Directory organization does not add a `services` namespace; existing domain namespaces remain unchanged.
+`ServiceManager` is the service owner and startup runner. Its constructor installs FrontlightService, PowerService, TaskDispatchService, BLEService, RPCService, DeviceControlService, TimeService, CalendarService, then WeatherService; add later services in dependency order before the first `begin()`. Pass dependencies through constructors and keep typed borrowed references; no dependency graph or automatic sorting is involved. Future services follow these built-ins. Every service must live in its owning domain's `services/` directory: hardware services in `hal/services/`, task dispatch in `tasking/services/`, time in `time/services/`, and the lifecycle framework in `runtime/services/`. BLEService lives in `ble/services/`; RPCService lives in `rpc/services/`; CalendarService lives in `calendar/services/`. Directory organization does not add a `services` namespace; existing domain namespaces remain unchanged.
 
 `begin(now)` samples the task clock and starts services in registration order. `update(now)` calls their optional update hooks in the same order; TaskDispatchService executes at most eight steps per call. Failure rolls back the successful prefix in reverse order; the failing service must clean up its own partial startup. Stop and destruction run in reverse order, leaving dependencies available while dependents clean up. Registration seals on the first startup attempt; begin/stop are idempotent and a stopped manager can restart the same instances. Lifecycle calls belong on the owning loop outside task execution and callbacks. Only the manager should start/stop managed services. Recursive begin is rejected and recursive update is ignored; stopping from lifecycle or update callbacks is prohibited.
 
@@ -53,3 +54,5 @@ RPCService borrows BLEService and TaskDispatchService. TimeService borrows RPCSe
 DeviceControlService lives in `hal/services/` and borrows RPCService and BLEService. It owns development RPC handlers for pairing erasure and deferred software restart; see [RPC device administration](rpc.md#device-administration).
 
 CalendarService borrows RPCService and a cached TimeService clock provider. `ServiceManager::calendar()` exposes its full today/tomorrow snapshot, local `upcoming(maxCount)` projection and scoped subscriptions. Method 9 latches a pull through methods 8/10; FATFS retains two validated recovery slots. Calendar stops before Time/RPC. Protocol, persistence, safety limits and verification: [Calendar](calendar.md#esp32-calendarservice).
+
+WeatherService lives in `weather/services/` and borrows RPCService plus a cached TimeService date provider. `ServiceManager::weather().report()` returns the optional last successfully fetched report from RAM. It pulls method 12 immediately on a ready session and hourly after success, with 30-second failure retries. Two validated FATFS slots preserve the latest daily report. Startup restores it only on a matching local date; date changes clear mismatched data and trigger a fresh pull. See [Weather](weather.md).

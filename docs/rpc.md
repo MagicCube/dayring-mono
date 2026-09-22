@@ -2,7 +2,7 @@
 
 ## Ownership and startup
 
-ServiceManager starts `Frontlight → Power → TaskDispatch → BLE → RPC → DeviceControl → Time → Calendar`. Shutdown reverses this order: Calendar cancels its requests and removes its handler, Time cancels its request and removes handlers, DeviceControl cancels scheduled actions and removes its handlers, RPC cancels its scheduler task and pending completions, then BLE stops the host before destroying callback storage. No service start waits for a phone.
+ServiceManager starts `Frontlight → Power → TaskDispatch → BLE → RPC → DeviceControl → Time → Calendar → Weather`. Shutdown reverses this order: Weather cancels its request, Calendar cancels its requests and removes its handler, Time cancels its request and removes handlers, DeviceControl cancels scheduled actions and removes its handlers, RPC cancels its scheduler task and pending completions, then BLE stops the host before destroying callback storage. No service start waits for a phone.
 
 | Responsibility | Entry point |
 | --- | --- |
@@ -14,6 +14,8 @@ ServiceManager starts `Frontlight → Power → TaskDispatch → BLE → RPC →
 | NimBLE write/notify GATT and host event dispatch | `src/platform/ble/services/BLEService.cpp` |
 | Pairing reset and deferred software restart | `src/platform/hal/services/DeviceControlService.*` |
 | macOS development-only unpairing | `tools/dayring-cli/Sources/DayringCLI/MacPairingStore.swift` |
+| Device-initiated weather pull and daily cache | `src/platform/weather/services/WeatherService.*`, `WeatherReport.*`, `WeatherStorage.*`, `FatWeatherFiles.cpp` |
+| macOS on-demand IP-based weather provider | `tools/dayring-cli/Sources/DayringCLI/Weather/` |
 | RTC and synchronization, timezone state | `src/platform/time/services/TimeService.*`, `ClockSample.h` |
 | RTC writes on the application loop | `src/platform/hal/RtcClock.cpp`, `setClockTime` |
 | Reusable Apple RPC endpoint and message channel | `tools/dayring-cli/Sources/DayringBLE/RPCPeer.swift`, `RPCMessageChannel.swift` |
@@ -101,7 +103,7 @@ Responses must match both request ID and method. Errors contain exactly one nonz
 | 6 | `pairing.reset` | Empty request starts asynchronous BLE-store erasure; `[1]` polls the same session. Reply `[0]` means pending, `[1]` means persisted keys/subscriptions cleared; error 7 means failure |
 | 7 | `device.reboot` | Empty request schedules software restart; empty reply acknowledges scheduling, not completion |
 
-Calendar CLI methods 8 (`calendar.begin`), 9 (`calendar.changed`), 10 (`calendar.read`), and 11 (`calendar.status`) are assigned by the [calendar contract](calendar.md#implemented-cli-contract). The macOS CLI serves snapshots and the ESP32 CalendarService implements the pull client and method-9 handler. A physical real-EventKit pull and saved-state readback passed on 2026-09-21; see calendar verification details. Begin/read use business-level snapshot paging on top of D2 fragmentation. Do not reuse IDs 8–11 for other application handlers.
+Calendar CLI methods 8 (`calendar.begin`), 9 (`calendar.changed`), 10 (`calendar.read`), and 11 (`calendar.status`) are assigned by the [calendar contract](calendar.md#implemented-cli-contract). The macOS CLI serves snapshots and the ESP32 CalendarService implements the pull client and method-9 handler. A physical real-EventKit pull and saved-state readback passed on 2026-09-21; see calendar verification details. Begin/read use business-level snapshot paging on top of D2 fragmentation. Method 12 (`weather.get`) is assigned to the [weather contract](weather.md). Do not reuse IDs 8–12 for other application handlers.
 
 Clock status states are 0 waiting, 1 pending, 2 synchronized, 3 failed. Custom Swift handlers use IDs above 7. BLECentral exposes `requestRPC`, `cancelRPC`, and `registerRPCHandler`; the standalone RPCPeer is independent of Core Bluetooth and can also be used with another transport.
 
@@ -152,3 +154,7 @@ With the fixed firmware uploaded without erasing bonds, a physical probe complet
 ### 10 KiB protocol verification
 
 The D2 extension is covered by host C++ tests and executable Swift/C++ interoperability checks. The macOS Command Line Tools installation used for development lacks XCTest, so the original Swift XCTest suite cannot run in that environment; the standalone interoperability target remains runnable. Earlier physical verification above used the D1 protocol and does not establish D2 throughput or peak device heap. Large-message radio timing, peak heap and UI responsiveness still need a physical-device run.
+
+## Asynchronous Apple handlers
+
+`RPCPeer.registerAsync` and `BLECentral.registerAsyncRPCHandler` allow a handler to complete later on the owning main queue. Weather uses this for location and HTTPS work without blocking clock/calendar RPC traffic. At most eight deferred replies are pending, each with a 120-second deadline. Completion is accepted once; reset and request tokens discard obsolete callbacks even when a new session reuses an ID. A timeout returns internal failure (7). Reply capacity is checked before dispatch and again at completion; deferred work does not reserve the message queue for its lifetime, and saturation returns busy (3). The handler must bound/cancel its own external work.

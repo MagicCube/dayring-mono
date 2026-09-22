@@ -24,6 +24,7 @@ class LockPageController final : public platform::ui::PageController {
     std::vector<LockCalendarItem> _calendarItems;
     bool _calendarDirty = true;
     uint64_t _minuteRevision = 0;
+    uint64_t _weatherRevision = 0;
     LockPage _view;
     bool _samplePower(bool refreshPercent);
     uint32_t _powerSampledAt = 0;

@@ -148,7 +148,7 @@ class PreviewTest(unittest.TestCase):
         self.assertNotEqual(baseline[480 * 320:480 * 760], empty[480 * 320:480 * 760])
         # Four future candidates in the fixture still produce only three left-hand rules.
         # Group visible marker rows across gaps no larger than a Bayer tile.
-        rules = [y for y in range(320, 760) if baseline[y * 480 + 32] == 255]
+        rules = [y for y in range(416, 760) if baseline[y * 480 + 32] == 255]
         self.assertEqual(sum(i == 0 or y - rules[i - 1] > 4 for i, y in enumerate(rules)), 3)
         long_title = decode(self.capture("app://shell/lock", "--calendar", "long-title", "--time", "13:40")["output"])[2]
         # The long title changes its first row, while the second-line time and later rows stay fixed.
@@ -170,6 +170,19 @@ class PreviewTest(unittest.TestCase):
         self.assertGreaterEqual(len(lengths), 2)
 
 
+
+    def test_lock_weather(self):
+        common = ("app://shell/lock", "--time", "13:40")
+        empty = decode(self.capture(*common)["output"])[2]
+        sample = decode(self.capture(*common, "--weather", "sample")["output"])[2]
+        charged = decode(self.capture(*common, "--weather", "sample", "--battery-charging")["output"])[2]
+        # A real WeatherService RPC result invalidates the already-rendered empty card.
+        self.assertNotEqual(empty[480 * 272:480 * 400], sample[480 * 272:480 * 400])
+        self.assertEqual(sample[480 * 272:], charged[480 * 272:])
+        dividers = [x for x in range(32, 448)
+                    if all(sample[y * 480 + x] == (255 if y % 2 == 0 else 0) for y in range(296, 360))]
+        self.assertEqual(len(dividers), 1)
+        self.assertEqual(set(sample), {0, 255})
 
     def test_bluetooth_states(self):
         default = self.capture("app://shell/")
@@ -248,7 +261,8 @@ class PreviewTest(unittest.TestCase):
     def test_isolated_views(self):
         listing = json.loads(invoke("views", "--json").stdout)
         self.assertEqual({e["view"] for e in listing["examples"]},
-                         {"HomePage", "LockPage", "TypographyPage", "LandingPage", "StatusBar", "BatteryIndicatorView"})
+                         {"HomePage", "LockPage", "TypographyPage", "LandingPage", "StatusBar",
+                          "BatteryIndicatorView", "DotMatrixView"})
         self.assertIn("reading", invoke("view-help", "TypographyPage").stdout)
         frames = {}
         for example in listing["examples"]:
@@ -329,6 +343,7 @@ class BuildCacheTest(unittest.TestCase):
             (native / "Main.cpp").write_text('#include "value.h"\nint main() { return VALUE; }\n')
             (native / "HostHardware.cpp").write_text("")
             (native / "HostBLE.cpp").write_text("")
+            (native / "HostWeather.cpp").write_text("")
             (native / "HostCalendar.cpp").write_text("")
             (native / "FrameBuffer.cpp").write_text("")
             dependency = native / "value.h"

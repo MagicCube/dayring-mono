@@ -17,11 +17,12 @@ Rtc::DateTime clockValue{.hour = 12, .minute = 34};
 uint8_t batteryValue = 75;
 bool chargingValue = false;
 bool submitted = false;
+uint32_t nowMs = 0;
 
 }  // namespace
 
 unsigned long millis() {
-    return 0;
+    return nowMs;
 }
 
 namespace preview {
@@ -40,6 +41,10 @@ void configureHardware(uint8_t hour, uint8_t minute, uint8_t battery, bool charg
     resetFrame();
     submitted = false;
     platform::hal::beginFrontlight();
+}
+
+void advanceTime(uint32_t now) {
+    nowMs = now;
 }
 
 bool hasFrame() {

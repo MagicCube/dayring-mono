@@ -39,6 +39,12 @@ extension BLECentral {
         _rpc.register(method: method, handler: handler)
     }
 
+    public func registerAsyncRPCHandler(method: UInt16, handler: @escaping RPCPeer.AsyncHandler) {
+        dispatchPrecondition(condition: .onQueue(.main))
+        precondition(method > 7, "Methods 0 through 7 are reserved")
+        _rpc.registerAsync(method: method, handler: handler)
+    }
+
     public func cancelRPC(_ id: UInt16) {
         dispatchPrecondition(condition: .onQueue(.main))
         _rpc.cancel(id)

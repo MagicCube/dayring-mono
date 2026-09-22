@@ -14,7 +14,7 @@
 | RTC initialization/read policy | `RtcClock.cpp` | `initializeRtc`, `clockTime` |
 | USB firmware upload handshake | `FirmwareUpload.cpp` | `beginFirmwareUpload`, `pollFirmwareUpload` |
 
-The shared FAT mount is owned by `src/platform/storage/FatFilesystem.h::mountFatFilesystem`; font startup and calendar persistence reuse it without formatting on failure. Font data loads after HAL bring-up; see [Fonts](fonts.md).
+The shared FAT mount is owned by `src/platform/storage/FatFilesystem.h::mountFatFilesystem`; font startup, calendar persistence and the daily weather cache reuse it without formatting on failure. Font data loads after HAL bring-up; see [Fonts](fonts.md).
 
 ## Contracts
 

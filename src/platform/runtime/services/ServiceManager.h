@@ -10,6 +10,7 @@
 #include "../../rpc/services/RPCService.h"
 #include "../../tasking/services/TaskDispatchService.h"
 #include "../../time/services/TimeService.h"
+#include "../../weather/services/WeatherService.h"
 #include "Service.h"
 
 namespace platform::runtime {
@@ -37,6 +38,9 @@ class ServiceManager {
     [[nodiscard]] calendar::CalendarService& calendar();
     [[nodiscard]] const calendar::CalendarService& calendar() const;
 
+    [[nodiscard]] weather::WeatherService& weather();
+    [[nodiscard]] const weather::WeatherService& weather() const;
+
     // Registration order is dependency order. Ownership transfers even on rejection.
     [[nodiscard]] bool add(std::unique_ptr<Service> service);
     [[nodiscard]] bool begin(std::uint32_t now = 0);
@@ -55,6 +59,7 @@ class ServiceManager {
     ble::BLEService* _ble;
     rpc::RPCService* _rpc;
     calendar::CalendarService* _calendar;
+    weather::WeatherService* _weather;
     std::size_t _started = 0;
     bool _sealed = false;
     bool _transitioning = false;

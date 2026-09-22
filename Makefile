@@ -21,6 +21,7 @@ BLE_SOURCES := src/platform/ble/services/BLEService.cpp
 RPC_SOURCES := src/platform/rpc/services/RPCService.cpp src/platform/rpc/MessageChannel.cpp
 CONTROL_SOURCES := src/platform/hal/services/DeviceControlService.cpp src/platform/hal/Restart.cpp
 CALENDAR_SOURCES := $(wildcard src/platform/calendar/*.cpp src/platform/calendar/services/*.cpp)
+WEATHER_SOURCES := $(wildcard src/platform/weather/*.cpp src/platform/weather/services/*.cpp)
 TIME_SOURCES := src/platform/time/services/TimeService.cpp $(RPC_SOURCES)
 HOST_UI_FLAGS := -isystem freeink-sdk/libs/hardware/Rtc/include -Isrc -Itests/stubs -isystem freeink-sdk/libs/ui/FreeInkUI/include
 
@@ -78,7 +79,7 @@ test-shell:
 	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror -Isrc -Itests/stubs \
 		-isystem freeink-sdk/libs/ui/FreeInkUI/include -isystem freeink-sdk/libs/hardware/Rtc/include \
 		tests/ShellApplicationTest.cpp src/apps/RegisterApplications.cpp src/apps/shell/ShellApplication.cpp src/apps/shell/pages/*.cpp $(QR_SOURCES) src/apps/shell/components/*.cpp src/apps/shell/views/*.cpp \
-		src/apps/common/*.cpp src/apps/typography/*.cpp src/platform/runtime/Shell.cpp src/platform/tasking/services/TaskDispatchService.cpp src/platform/runtime/services/ServiceManager.cpp $(CALENDAR_SOURCES) $(CONTROL_SOURCES) $(BLE_SOURCES) $(POWER_SOURCES) $(TIME_SOURCES) src/platform/ui/ApplicationContainer.cpp \
+		src/apps/common/*.cpp src/apps/typography/*.cpp src/platform/runtime/Shell.cpp src/platform/tasking/services/TaskDispatchService.cpp src/platform/runtime/services/ServiceManager.cpp $(CALENDAR_SOURCES) $(WEATHER_SOURCES) $(CONTROL_SOURCES) $(BLE_SOURCES) $(POWER_SOURCES) $(TIME_SOURCES) src/platform/ui/ApplicationContainer.cpp \
 		$(APPLICATION_SOURCES) \
 		src/platform/runtime/Input.cpp src/platform/runtime/Display.cpp $(FONT_SOURCES) $(FONT_FLAGS) \
 		freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp -o "$$shell_test" && "$$shell_test"
@@ -94,7 +95,7 @@ test-home-entry:
 	trap 'rm -f "$$home_test"' EXIT; \
 	for home_url in 'app://calendar/path/to/page?id=42&mode=week#top' 'app://home' 'invalid'; do \
 		$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror $(HOST_UI_FLAGS) \
-			-D"DAYRING_HOME_URL=\"$$home_url\"" tests/HomeEntryTest.cpp tests/stubs/RuntimeDispatch.cpp src/apps/shell/components/StatusBar.cpp src/apps/shell/components/StatusBarController.cpp src/apps/shell/views/*.cpp freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp src/platform/runtime/Shell.cpp src/platform/tasking/services/TaskDispatchService.cpp src/platform/runtime/services/ServiceManager.cpp $(CALENDAR_SOURCES) $(CONTROL_SOURCES) $(BLE_SOURCES) $(POWER_SOURCES) $(TIME_SOURCES) src/platform/ui/ApplicationContainer.cpp $(APPLICATION_SOURCES) -o "$$home_test" || exit $$?; \
+			-D"DAYRING_HOME_URL=\"$$home_url\"" tests/HomeEntryTest.cpp tests/stubs/RuntimeDispatch.cpp src/apps/shell/components/StatusBar.cpp src/apps/shell/components/StatusBarController.cpp src/apps/shell/views/*.cpp freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp src/platform/runtime/Shell.cpp src/platform/tasking/services/TaskDispatchService.cpp src/platform/runtime/services/ServiceManager.cpp $(CALENDAR_SOURCES) $(WEATHER_SOURCES) $(CONTROL_SOURCES) $(BLE_SOURCES) $(POWER_SOURCES) $(TIME_SOURCES) src/platform/ui/ApplicationContainer.cpp $(APPLICATION_SOURCES) -o "$$home_test" || exit $$?; \
 		case "$$home_url" in app://calendar/*) expected=valid ;; *) expected=invalid ;; esac; \
 		"$$home_test" "$$expected" || exit $$?; \
 	done
@@ -103,7 +104,7 @@ test-shell-facade:
 	@facade_test=$$(mktemp /tmp/dayring-shell-facade-test.XXXXXX); \
 	trap 'rm -f "$$facade_test"' EXIT; \
 	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror $(HOST_UI_FLAGS) \
-		tests/ShellFacadeTest.cpp tests/stubs/RuntimeDispatch.cpp src/apps/shell/components/StatusBar.cpp src/apps/shell/components/StatusBarController.cpp src/apps/shell/views/*.cpp freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp src/platform/runtime/Shell.cpp src/platform/tasking/services/TaskDispatchService.cpp src/platform/runtime/services/ServiceManager.cpp $(CALENDAR_SOURCES) $(CONTROL_SOURCES) $(BLE_SOURCES) $(POWER_SOURCES) $(TIME_SOURCES) src/platform/ui/ApplicationContainer.cpp $(APPLICATION_SOURCES) \
+		tests/ShellFacadeTest.cpp tests/stubs/RuntimeDispatch.cpp src/apps/shell/components/StatusBar.cpp src/apps/shell/components/StatusBarController.cpp src/apps/shell/views/*.cpp freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp src/platform/runtime/Shell.cpp src/platform/tasking/services/TaskDispatchService.cpp src/platform/runtime/services/ServiceManager.cpp $(CALENDAR_SOURCES) $(WEATHER_SOURCES) $(CONTROL_SOURCES) $(BLE_SOURCES) $(POWER_SOURCES) $(TIME_SOURCES) src/platform/ui/ApplicationContainer.cpp $(APPLICATION_SOURCES) \
 		-o "$$facade_test" && "$$facade_test"
 
 test-power-service:
@@ -130,6 +131,12 @@ test-font-loader:
 	trap 'rm -f "$$font_loader_test"' EXIT; \
 	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror $(HOST_UI_FLAGS) $(FONT_FLAGS) \
 		tests/FontAssetTest.cpp $(FONT_SOURCES) -o "$$font_loader_test" && "$$font_loader_test"
+
+.PHONY: test-dot-matrix
+test-dot-matrix:
+	@mkdir -p .cache/dot-icons
+	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror $(HOST_UI_FLAGS) tests/DotMatrixViewTest.cpp freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp -o .cache/dot-icons/view-test
+	.cache/dot-icons/view-test
 
 .PHONY: test-preview test-preview-runtime
 test: test-preview
@@ -183,7 +190,7 @@ test-service-manager:
 	@service_test=$$(mktemp /tmp/dayring-service-manager-test.XXXXXX); \
 	trap 'rm -f "$$service_test"' EXIT; \
 	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror -fno-exceptions $(HOST_UI_FLAGS) \
-		tests/ServiceManagerTest.cpp tests/stubs/RuntimeDispatch.cpp $(POWER_SOURCES) $(TIME_SOURCES) src/platform/runtime/services/ServiceManager.cpp $(CALENDAR_SOURCES) $(CONTROL_SOURCES) $(BLE_SOURCES) src/platform/tasking/services/TaskDispatchService.cpp \
+		tests/ServiceManagerTest.cpp tests/stubs/RuntimeDispatch.cpp $(POWER_SOURCES) $(TIME_SOURCES) src/platform/runtime/services/ServiceManager.cpp $(CALENDAR_SOURCES) $(WEATHER_SOURCES) $(CONTROL_SOURCES) $(BLE_SOURCES) src/platform/tasking/services/TaskDispatchService.cpp \
 		-o "$$service_test" && "$$service_test"
 
 .PHONY: test-time-service
@@ -220,7 +227,7 @@ test-pairing-startup:
 	@facade_test=$$(mktemp /tmp/dayring-shell-facade-test.XXXXXX); \
 	trap 'rm -f "$$facade_test"' EXIT; \
 	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror $(HOST_UI_FLAGS) \
-		tests/PairingStartupTest.cpp src/apps/shell/ShellApplication.cpp src/apps/shell/pages/*.cpp $(QR_SOURCES) tests/stubs/RuntimeDispatch.cpp src/apps/shell/components/StatusBar.cpp src/apps/shell/components/StatusBarController.cpp src/apps/shell/views/*.cpp freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp src/platform/runtime/Shell.cpp src/platform/tasking/services/TaskDispatchService.cpp src/platform/runtime/services/ServiceManager.cpp $(CALENDAR_SOURCES) $(CONTROL_SOURCES) $(POWER_SOURCES) $(TIME_SOURCES) src/platform/ui/ApplicationContainer.cpp $(APPLICATION_SOURCES) \
+		tests/PairingStartupTest.cpp src/apps/shell/ShellApplication.cpp src/apps/shell/pages/*.cpp $(QR_SOURCES) tests/stubs/RuntimeDispatch.cpp src/apps/shell/components/StatusBar.cpp src/apps/shell/components/StatusBarController.cpp src/apps/shell/views/*.cpp freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp src/platform/runtime/Shell.cpp src/platform/tasking/services/TaskDispatchService.cpp src/platform/runtime/services/ServiceManager.cpp $(CALENDAR_SOURCES) $(WEATHER_SOURCES) $(CONTROL_SOURCES) $(POWER_SOURCES) $(TIME_SOURCES) src/platform/ui/ApplicationContainer.cpp $(APPLICATION_SOURCES) \
 		-o "$$facade_test" && "$$facade_test"
 
 .PHONY: test-qr-code
@@ -336,3 +343,23 @@ test-font-assets:
 test: test-fs-sync
 test-fs-sync:
 	$(PYTHON) tests/SyncFsTest.py
+
+.PHONY: test-weather test-cli-weather
+test: test-weather
+test-weather:
+	@mkdir -p .cache/weather
+	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror -fno-exceptions -Isrc \
+		tests/WeatherServiceTest.cpp $(WEATHER_SOURCES) $(RPC_SOURCES) \
+		src/platform/tasking/services/TaskDispatchService.cpp -o .cache/weather/service-checks
+	.cache/weather/service-checks
+
+test-cli-weather: test-weather
+	swift build --package-path tools/dayring-cli --scratch-path .cache/dayring-cli --build-system native
+	@swift_bin=$$(swift build --package-path tools/dayring-cli --scratch-path .cache/dayring-cli --build-system native --show-bin-path); \
+	swiftc -I "$$swift_bin/Modules" "$$swift_bin"/DayringBLE.build/*.swift.o \
+		tools/dayring-cli/Sources/DayringCLI/Weather/WeatherReport.swift \
+		tools/dayring-cli/Sources/DayringCLI/Weather/WttrWeatherSource.swift \
+		tools/dayring-cli/Sources/DayringCLI/Weather/WeatherRPCService.swift \
+		tools/dayring-cli/Tests/Weather/WeatherChecks.swift -o .cache/weather/cli-checks && \
+		.cache/weather/cli-checks .cache/weather/report.bin
+	.cache/weather/service-checks .cache/weather/report.bin

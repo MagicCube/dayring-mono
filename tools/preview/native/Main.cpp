@@ -7,6 +7,7 @@
 #include "HostBLE.h"
 #include "HostCalendar.h"
 #include "HostHardware.h"
+#include "HostWeather.h"
 #include "apps/RegisterApplications.h"
 #include "platform/fonts/Fonts.h"
 #include "platform/runtime/Shell.h"
@@ -106,6 +107,12 @@ int capture(Shell& shell, char** argv, bool powerPress, uint8_t lockTaps) {
     if (shell.applicationManager().currentURL() != resolved)
         return fail(5, "route_mismatch", "The application redirected away from the requested page.");
     shell.update();
+    if (preview::hasWeatherFixture()) {
+        for (uint32_t now = 10; now <= 200; now += 10) {
+            preview::advanceTime(now);
+            shell.update();
+        }
+    }
     if (powerPress) {
         shell.onInput({platform::runtime::InputEvent::Type::PowerPress});
         shell.update();
@@ -125,13 +132,15 @@ int main(int argc, char** argv) {
     auto& shell = Shell::instance();
     if (!apps::registerApplications(shell)) return fail(5, "registration_failed", "Application registration failed.");
     if (argc == 2 && std::string_view(argv[1]) == "routes") return listRoutes(shell);
-    if ((argc >= 7 && argc <= 11) && std::string_view(argv[1]) == "capture") {
+    if ((argc >= 7 && argc <= 12) && std::string_view(argv[1]) == "capture") {
         if (!preview::configureBluetooth(argc >= 9 ? argv[8] : "connected"))
             return fail(2, "invalid_state", "Invalid Bluetooth state.");
         if (!preview::configureCalendar(argc >= 10 ? argv[9] : "empty"))
             return fail(2, "invalid_state", "Invalid calendar scenario.");
+        if (!preview::configureWeather(argc >= 12 ? argv[11] : "empty"))
+            return fail(2, "invalid_state", "Invalid weather scenario.");
         uint8_t lockTaps = 0;
-        if (argc == 11 && !number(argv[10], 2, lockTaps)) return fail(2, "invalid_state", "Invalid lock tap count.");
+        if (argc >= 11 && !number(argv[10], 2, lockTaps)) return fail(2, "invalid_state", "Invalid lock tap count.");
         return capture(shell, argv, argc >= 8 && std::string_view(argv[7]) == "1", lockTaps);
     }
     return fail(2, "invalid_arguments", "Use the tools/preview/preview launcher. The native protocol is internal.");

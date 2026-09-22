@@ -10,8 +10,10 @@
 #include "apps/shell/components/StatusBar.h"
 #include "apps/shell/pages/HomePage.h"
 #include "apps/shell/pages/LockPage.h"
+#include "apps/shell/pages/LockWeather.h"
 #include "apps/typography/TypographyPage.h"
 #include "platform/fonts/Fonts.h"
+#include "platform/ui/DotMatrixView.h"
 
 namespace {
 
@@ -48,6 +50,47 @@ void renderBatteryExamples(Canvas& canvas, const Rect&) {
 }
 
 const std::array examples{
+    Example{"DotMatrixView", "weather", pageBounds,
+            [](Canvas& c, const Rect& b) {
+                using namespace freeink::ui;
+                using namespace apps::shell;
+                c.fill(b, Paint::solid(Color::Black));
+                const std::array matrices{icons::Clear, icons::PartlyCloudy, icons::Cloudy,
+                                          icons::Rain,  icons::Thunderstorm, icons::Snow};
+                const std::array labels{"CLEAR", "PARTLY CLOUDY", "CLOUDY / FOG", "RAIN", "THUNDER", "SNOW / ICE"};
+                for (size_t i = 0; i < matrices.size(); ++i) {
+                    const int16_t x = static_cast<int16_t>((i % 2) * 240);
+                    const int16_t y = static_cast<int16_t>(32 + (i / 2) * 248);
+                    platform::ui::DotMatrixView{}.render(c, {static_cast<int16_t>(x + 54), y, 132, 132},
+                                                         {.matrix = matrices[i], .color = Color::White});
+                    c.text({x, static_cast<int16_t>(y + 140), 240, 32}, labels[i],
+                           {.font = platform::fonts::fontId(platform::fonts::Font::RobotoS),
+                            .align = TextAlign::Center,
+                            .color = Color::White,
+                            .maxLines = 1});
+                }
+            }},
+    Example{
+        "LockPage", "rain", pageBounds,
+        [](Canvas& c, const Rect& b) {
+            apps::shell::pages::LockPage{}.render(
+                c, b,
+                {.weatherCondition = "Rain", .weatherTemperature = "16 - 22", .weatherIcon = apps::shell::icons::Rain});
+        }},
+    Example{
+        "LockPage", "snow", pageBounds,
+        [](Canvas& c, const Rect& b) {
+            apps::shell::pages::LockPage{}.render(
+                c, b,
+                {.weatherCondition = "Snow", .weatherTemperature = "-5 - 2", .weatherIcon = apps::shell::icons::Snow});
+        }},
+    Example{"LockPage", "partly-cloudy", pageBounds,
+            [](Canvas& c, const Rect& b) {
+                apps::shell::pages::LockPage{}.render(c, b,
+                                                      {.weatherCondition = "Partly cloudy",
+                                                       .weatherTemperature = "16 - 22",
+                                                       .weatherIcon = apps::shell::icons::PartlyCloudy});
+            }},
     Example{"StatusBar", "bluetooth", pageBounds,
             [](Canvas& c, const Rect&) {
                 using namespace apps::shell::components;

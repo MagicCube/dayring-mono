@@ -2,15 +2,14 @@
 #include <span>
 #include <string>
 
+#include "../../../platform/ui/DotMatrix.h"
 #include "../../../platform/ui/Page.h"
 
 namespace apps::shell::pages {
 
 struct LockCalendarItem {
     std::string title;
-    std::string location;
-    std::string startTime;
-    std::string endTime;
+    std::string time;
     bool isTomorrow = false;
     bool isAllDay = false;
     bool operator==(const LockCalendarItem&) const = default;
@@ -27,6 +26,9 @@ struct LockPageProps {
     uint8_t percent = 0;
     bool showUnlockHint = false;
     std::span<const LockCalendarItem> events{};
+    const char* weatherCondition = "--";
+    const char* weatherTemperature = "--";
+    platform::ui::DotMatrix weatherIcon{};
 };
 
 class LockPage final : public platform::ui::Page<LockPageProps> {
@@ -34,6 +36,7 @@ class LockPage final : public platform::ui::Page<LockPageProps> {
     void render(platform::ui::Canvas&, const platform::ui::Rect&, const Props&) const override;
 
    private:
+    void _renderWeather(platform::ui::Canvas&, const platform::ui::Rect&, const Props&) const;
     void _renderCalendar(platform::ui::Canvas&, const platform::ui::Rect&, const Props&) const;
 };
 

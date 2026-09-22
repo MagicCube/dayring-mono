@@ -5,11 +5,14 @@ Design rules and rationale: [UI architecture](ui.md).
 | Find | File | Symbols |
 | --- | --- | --- |
 | Drawing adapter and coordinate types | `src/platform/ui/View.h` | `View`, `Canvas`, `Rect` |
+| Reusable variable-size dot matrix and touching circles | `src/platform/ui/DotMatrix.h`, `DotMatrixView.h` | `DotMatrix::size`, `DotMatrixProps::dotDiameter`, `DotMatrixView` |
+| Six Lucide weather dot assets and sampling | `src/apps/shell/icons/WeatherDotIcons.h`, `tools/generate-dot-icons/` | See generator README for categories and size selection |
 | Page ownership, lifecycle, fullscreen invalidation | `src/platform/ui/PageController.*` | `PageController`, `setFullscreen` |
 | Presentation-only pages with default Props | `src/platform/ui/StaticPageController.h` | `StaticPageController<PageType>` |
 | Status layout, full-frame composition, touch filtering and home gesture | `src/platform/ui/ApplicationContainer.cpp` | `render`, `needsRender`, `onInput` |
 | Status clock/battery sampling and BLE state/blink timing | `src/apps/shell/components/StatusBarController.cpp` | `update`, `render` |
 | Lock upcoming calendar list and subscription | `src/apps/shell/pages/LockPage.*`, `LockPageController.*` | `_renderCalendar`, `_refreshCalendar`, `onEnter`, `onLeave` |
+| Lock weather card and report invalidation | `src/apps/shell/pages/LockPage.*`, `LockPageController.*`, `LockWeather.h` | `_renderWeather`, `update`, `weatherCondition` |
 | Minute change timing | `src/platform/time/services/TimeService.cpp` | `update`, `displayTime`, `minuteRevision` |
 | Framebuffer adapter and refresh gate | `src/platform/runtime/Display.cpp` | `displayDevice`, `renderFrame` |
 | Article typography preview and tap/swipe paging | `src/apps/typography/TypographyPage.*` | `render`, `_renderArticle`; `TypographyPageController` handles input |

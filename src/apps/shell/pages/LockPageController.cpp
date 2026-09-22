@@ -7,6 +7,7 @@
 
 #include "../../../platform/hal/Hardware.h"
 #include "../../../platform/runtime/Shell.h"
+#include "LockWeather.h"
 
 namespace apps::shell::pages {
 
@@ -45,7 +46,10 @@ bool LockPageController::update() {
     const bool clockChanged = _minuteRevision != revision;
     _minuteRevision = revision;
     const bool calendarChanged = (_calendarDirty || clockChanged) && _refreshCalendar();
-    return _samplePower(clockChanged) || clockChanged || hintChanged || calendarChanged;
+    const auto weatherRevision = platform::runtime::Shell::instance().services().weather().reportRevision();
+    const bool weatherChanged = _weatherRevision != weatherRevision;
+    _weatherRevision = weatherRevision;
+    return _samplePower(clockChanged) || clockChanged || hintChanged || calendarChanged || weatherChanged;
 }
 
 bool LockPageController::onInput(const platform::runtime::InputEvent& event) {
@@ -91,20 +95,21 @@ bool LockPageController::_refreshCalendar() {
         const auto startDay = event.start.localSeconds() / 86400;
         const auto start = event.start.localSeconds() % 86400;
         const auto end = event.end.localSeconds() % 86400;
-        char startLabel[8] = "", endLabel[8] = "";
+        char label[24] = "";
         if (event.isAllDay) {
-            snprintf(startLabel, sizeof(startLabel), "All day");
+            snprintf(label, sizeof(label), "All day");
         } else {
-            snprintf(startLabel, sizeof(startLabel), "%02u:%02u", static_cast<unsigned>(start / 3600), static_cast<unsigned>((start / 60) % 60));
-            snprintf(endLabel, sizeof(endLabel), "%02u:%02u", static_cast<unsigned>(end / 3600), static_cast<unsigned>((end / 60) % 60));
+            snprintf(label, sizeof(label), "%02u:%02u-%02u:%02u", static_cast<unsigned>(start / 3600),
+                     static_cast<unsigned>((start / 60) % 60), static_cast<unsigned>(end / 3600),
+                     static_cast<unsigned>((end / 60) % 60));
         }
         auto singleLine = [](std::string value) {
             std::replace(value.begin(), value.end(), '\n', ' ');
             std::replace(value.begin(), value.end(), '\r', ' ');
             return value;
         };
-        items.push_back({singleLine(event.title.empty() ? "Untitled" : event.title), singleLine(event.location), startLabel,
-                         endLabel, startDay == today + 1, event.isAllDay});
+        items.push_back({singleLine(event.title.empty() ? "Untitled event" : event.title), label, startDay == today + 1,
+                         event.isAllDay});
     }
     if (items == _calendarItems) return false;
     _calendarItems = std::move(items);
@@ -139,6 +144,9 @@ bool LockPageController::_samplePower(bool refreshPercent) {
 
 void LockPageController::render(platform::ui::Canvas& canvas, const platform::ui::Rect& bounds) {
     const auto& time = platform::runtime::Shell::instance().services().time().displayTime();
+    const auto& weather = platform::runtime::Shell::instance().services().weather().report();
+    char temperature[32] = "--";
+    if (weather) snprintf(temperature, sizeof(temperature), "%d - %d°", weather->minTempC, weather->maxTempC);
     _view.render(canvas, bounds,
                  {.hour = time.hour,
                   .minute = time.minute,
@@ -149,7 +157,10 @@ void LockPageController::render(platform::ui::Canvas& canvas, const platform::ui
                   .batteryKnown = _batteryKnown,
                   .percent = _percent,
                   .showUnlockHint = _showUnlockHint,
-                  .events = _calendarItems});
+                  .events = _calendarItems,
+                  .weatherCondition = weather ? weatherCondition(weather->weatherCode) : "--",
+                  .weatherTemperature = temperature,
+                  .weatherIcon = weather ? weatherIcon(weather->weatherCode) : platform::ui::DotMatrix{}});
 }
 
 }  // namespace apps::shell::pages

@@ -32,6 +32,12 @@ ServiceManager::ServiceManager() {
         std::make_unique<calendar::CalendarService>(*_rpc, [this] { return calendar::sampleClock(*_time); });
     _calendar = calendar.get();
     _services.push_back(std::move(calendar));
+    auto weather = std::make_unique<weather::WeatherService>(*_rpc, [this] {
+        const auto& date = _time->time();
+        return weather::weatherDate(date.year, date.month, date.day);
+    });
+    _weather = weather.get();
+    _services.push_back(std::move(weather));
 }
 
 ServiceManager::~ServiceManager() {
@@ -128,6 +134,14 @@ calendar::CalendarService& ServiceManager::calendar() {
 
 const calendar::CalendarService& ServiceManager::calendar() const {
     return *_calendar;
+}
+
+weather::WeatherService& ServiceManager::weather() {
+    return *_weather;
+}
+
+const weather::WeatherService& ServiceManager::weather() const {
+    return *_weather;
 }
 
 tasking::TaskDispatchService& ServiceManager::tasks() {
