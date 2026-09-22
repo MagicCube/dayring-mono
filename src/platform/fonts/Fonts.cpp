@@ -14,7 +14,7 @@ namespace {
 
 std::array<FontAsset, 8> assets;
 bool loaded = false;
-constexpr std::array<const char*, 8> filenames{"sans-s.bin",   "sans-m.bin",        "sans-l.bin",        "sans-xl.bin",
+constexpr std::array<const char*, 8> filenames{"sans-s.bin",   "sans-m.bin",   "sans-l.bin",   "sans-xl.bin",
                                                "sans-2xl.bin", "ndot-2xl.bin", "ndot-4xl.bin", "ndot-120.bin"};
 
 }  // namespace

@@ -82,7 +82,7 @@ void checkMalformedFiles(const std::filesystem::path& path) {
 }
 
 void checkStartupTransaction(const std::filesystem::path& directory) {
-    constexpr const char* names[]{"sans-s.bin",   "sans-m.bin",        "sans-l.bin",        "sans-xl.bin",
+    constexpr const char* names[]{"sans-s.bin",   "sans-m.bin",   "sans-l.bin",   "sans-xl.bin",
                                   "sans-2xl.bin", "ndot-2xl.bin", "ndot-4xl.bin", "ndot-120.bin"};
     assert(!platform::fonts::loadFonts(directory.c_str()));
     for (const auto* name : names) {
