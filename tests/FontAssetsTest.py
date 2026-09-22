@@ -69,7 +69,7 @@ def check_font(filename, source, latin_size, cjk_size, line_height, baseline):
     print(f"{filename}: source-face parity, lossless compression, both GB2312 levels and punctuation passed")
 
 
-for case in [("s", "Regular", 23, 22, 28, 22), ("m", "Regular", 28, 26, 33, 26),
-             ("l", "Medium", 32, 30, 48, 38), ("xl", "Medium", 40, 38, 48, 38),
-             ("2xl", "Medium", 46, 43, 55, 43)]:
+for case in [("sans-s", "Regular", 23, 22, 28, 22), ("sans-m", "Regular", 28, 26, 33, 26),
+             ("sans-l", "Medium", 32, 30, 48, 38), ("sans-xl", "Medium", 40, 38, 48, 38),
+             ("sans-2xl", "Medium", 46, 43, 55, 43)]:
     check_font(*case)
