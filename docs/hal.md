@@ -14,13 +14,24 @@
 | RTC initialization/read policy | `RtcClock.cpp` | `initializeRtc`, `clockTime` |
 | USB firmware upload handshake | `FirmwareUpload.cpp` | `beginFirmwareUpload`, `pollFirmwareUpload` |
 
+The shared FAT mount is owned by `src/platform/storage/FatFilesystem.h::mountFatFilesystem`; font startup and calendar persistence reuse it without formatting on failure. Font data loads after HAL bring-up; see [Fonts](fonts.md).
+
 ## Contracts
 
-- HAL owns devices and the frontlight driver; ServiceManager owns runtime power policy; SDK owns framebuffer storage. Render only when ready; `update()` confirms asynchronous refresh completion before releasing the buffer.
+- HAL owns devices and the frontlight driver; ServiceManager owns runtime power policy; SDK owns framebuffer storage. Render only when ready; `update()` verifies refresh completion before releasing the buffer.
 - Target: PaperMono-Lite, 16 MB flash, at least 8 MB PSRAM, native 800 × 480 buffer. Product orientation and electrical constraints: [hardware](hardware.md).
 - SDK `PaperMonoBoard::ensureBooted()` retries PMIC/IOE1 initialization for up to 1000 ms. Failed initialization remains retryable; successful calls must preserve active rails. No extra blanket startup delay.
 - Logging is disabled (`CORE_DEBUG_LEVEL=0`). PMIC single-click reset is disabled; long-hold download escape remains enabled.
 - Shell updates PowerService after HAL input sampling on every normal loop, including during refresh. HAL exposes native touch coordinates; runtime converts orientation.
+
+## Display tones
+
+The standard SDK `DisplayTarget` draws into the 1-bit framebuffer. Gray colors
+use ordered black/white dithering, including on black backgrounds, and HAL submits
+through `displayBufferAsync(FULL_REFRESH)` using PaperMono's B/W OTP path.
+This is simulated gray, not physical grayscale. Previews export that same packed
+framebuffer so dots and endpoints match firmware. No custom grayscale planes,
+waveforms, or grayscale refresh cadence are used.
 
 ## Power policy
 

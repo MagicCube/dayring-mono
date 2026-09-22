@@ -17,14 +17,17 @@ void calendarRow(platform::ui::Canvas& canvas, const platform::ui::Rect& row, co
     using namespace freeink::ui;
     using platform::fonts::Font;
     using platform::fonts::fontId;
-    constexpr int16_t ruleWidth = 6, textGap = 16, lineGap = 4;
+    constexpr int16_t ruleWidth = 6, textGap = 8, lineGap = 4;
     const int16_t textX = row.x + ruleWidth + textGap;
     const int16_t textWidth = row.width - ruleWidth - textGap;
     canvas.fill({row.x, static_cast<int16_t>(row.y + 4), ruleWidth, static_cast<int16_t>(row.height - 8)},
-                Paint::solid(Color::White), ruleWidth / 2);
-    canvas.text({textX, row.y, textWidth, titleHeight}, event.title.c_str(),
+                Paint::solid(Color::LightGray), ruleWidth / 2);
+    // Optically center the visible text block against the marker, preserving the shared font baselines.
+    const int16_t titleY = static_cast<int16_t>(row.y - 4);
+    canvas.text({textX, titleY, textWidth, titleHeight}, event.title.c_str(),
                 {.font = fontId(Font::RobotoL), .color = Color::White, .maxLines = 1});
-    canvas.text({textX, static_cast<int16_t>(row.y + titleHeight + lineGap), textWidth, detailHeight},
+    if (event.isAllDay) return;
+    canvas.text({textX, static_cast<int16_t>(titleY + titleHeight + lineGap), textWidth, detailHeight},
                 event.time.c_str(), {.font = fontId(Font::RobotoM), .color = Color::LightGray, .maxLines = 1});
 }
 
@@ -87,8 +90,10 @@ void LockPage::_renderCalendar(platform::ui::Canvas& canvas, const platform::ui:
     const int16_t titleHeight = gridLineHeight(canvas, fontId(Font::RobotoL));
     const int16_t detailHeight = gridLineHeight(canvas, fontId(Font::RobotoM));
     const int16_t labelHeight = gridLineHeight(canvas, fontId(Font::RobotoS));
-    const int16_t itemHeight = titleHeight + 4 + detailHeight;
     const auto events = props.events.first(count);
+    const auto itemHeight = [&](const LockCalendarItem& event) {
+        return static_cast<int16_t>(event.isAllDay ? titleHeight : titleHeight + 4 + detailHeight);
+    };
     size_t firstTomorrow = count;
     for (size_t i = 0; i < count; ++i) {
         if (events[i].isTomorrow) {
@@ -98,8 +103,10 @@ void LockPage::_renderCalendar(platform::ui::Canvas& canvas, const platform::ui:
     }
     const auto groupHeight = [&](size_t begin, size_t end) {
         if (begin >= end) return int16_t{0};
-        return static_cast<int16_t>(labelHeight + groupBottom + (end - begin) * itemHeight +
-                                    (end - begin > 1 ? (end - begin - 1) * itemGap : 0));
+        int16_t height =
+            static_cast<int16_t>(labelHeight + groupBottom + (end - begin > 1 ? (end - begin - 1) * itemGap : 0));
+        for (size_t i = begin; i < end; ++i) height += itemHeight(events[i]);
+        return height;
     };
     const int16_t upcomingHeight = groupHeight(0, firstTomorrow);
     const int16_t tomorrowHeight = groupHeight(firstTomorrow, count);
@@ -117,7 +124,7 @@ void LockPage::_renderCalendar(platform::ui::Canvas& canvas, const platform::ui:
         if (begin >= end) return;
         Stack<4> rows(groupBounds, Axis::Column, itemGap);
         rows.fixed(labelHeight);
-        for (size_t i = begin; i < end; ++i) rows.fixed(itemHeight);
+        for (size_t i = begin; i < end; ++i) rows.fixed(itemHeight(events[i]));
         rows.layout();
         canvas.text(rows.rect(0), label, {.font = fontId(Font::RobotoS), .color = Color::LightGray});
         for (size_t i = begin; i < end; ++i)

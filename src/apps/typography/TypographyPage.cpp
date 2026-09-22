@@ -16,29 +16,27 @@ using namespace freeink::ui;
 struct ArticleBlock {
     const char* text;
     Font font;
+    const char* translation = nullptr;
+    Font translationFont = Font::RobotoL;
+    int16_t translationOffset = 0;
 };
 
 constexpr std::array<ArticleBlock, 6> readingArticle{{
-    {"The quiet page", Font::Roboto2XL},
-    {"A little room to think", Font::RobotoXL},
-    {"Finding a slower rhythm", Font::RobotoL},
-    {"Morning arrives without a sound. Light crosses the table, and a fresh page waits for the first idea.",
-     Font::RobotoM},
-    {"We read a little, pause, then begin again. Space between paragraphs gives each thought a place to settle.",
-     Font::RobotoM},
-    {"Field notes / No. 01\nGood type makes room for words: clear shapes, a steady rhythm, and time to read.",
-     Font::RobotoS},
+    {"字里行间 / Type", Font::Roboto2XL},
+    {"慢一点，Read on.", Font::RobotoXL},
+    {"李昕 / Hello, world!", Font::RobotoL},
+    {"清晨，翻开新的一页。\nA quiet moment to read.", Font::RobotoM},
+    {"“你好，世界！”《日常》\n(Hello, world!) 09:30 — 12:00", Font::RobotoM},
+    {"小字也清晰 / Small details\n《阅读》、“你好”…… / Read on.\n标点对照：，。！？；：（） / ,.!?;:()", Font::RobotoS},
 }};
 
 constexpr std::array<ArticleBlock, 6> displayArticle{{
-    {"TYPE", Font::NDot120},
-    {"IN FOCUS", Font::NDot4XL},
-    {"A DAILY RITUAL", Font::NDot2XL},
-    {"At 00:13, the room is still. A few points of light mark the hours; a familiar shape becomes a quiet signal.",
-     Font::RobotoM},
-    {"Large letters set the mood. Smaller words carry the story, leaving enough space for the eye to rest.",
-     Font::RobotoM},
-    {"Field notes / No. 02\nA study in dots, numbers, and the spaces between them.", Font::RobotoS},
+    {"TYPE", Font::NDot120, "字形", Font::Roboto2XL, 47},
+    {"FOCUS", Font::NDot4XL, "专注", Font::RobotoXL, 22},
+    {"DAILY", Font::NDot2XL, "日常", Font::RobotoM, 9},
+    {"夜深了，Time slows down.\n00:13，留一点时间给自己。", Font::RobotoM},
+    {"大字定下节奏，Small words tell stories.\n在点与线之间，Find your rhythm.", Font::RobotoM},
+    {"字形笔记 / Field notes\n点阵、数字与留白。Dots, numbers, space.", Font::RobotoS},
 }};
 
 }  // namespace
@@ -63,7 +61,7 @@ void TypographyPage::render(platform::ui::Canvas& canvas, const platform::ui::Re
             if (index == 0) {
                 _renderArticle(canvas, slot, props);
             } else {
-                canvas.text(slot, props.isDisplayArticle ? "02 / NDot 57" : "01 / Roboto",
+                canvas.text(slot, props.isDisplayArticle ? "02 / NDot 57 + 思源简体" : "01 / Roboto + 思源简体",
                             {.font = fontId(Font::RobotoS)});
             }
         });
@@ -82,6 +80,14 @@ void TypographyPage::_renderArticle(platform::ui::Canvas& canvas, const platform
         [&](uint8_t index, Rect slot) {
             const auto& block = blocks[index];
             canvas.text(slot, block.text, {.font = fontId(block.font), .maxLines = 16});
+            if (block.translation) {
+                const auto width = canvas.measureText(fontId(block.font), block.text, {}).width;
+                const auto height = canvas.lineHeight(fontId(block.translationFont));
+                const Rect translation{static_cast<int16_t>(slot.x + width + 16),
+                                       static_cast<int16_t>(slot.y + block.translationOffset),
+                                       static_cast<int16_t>(slot.width - width - 16), height};
+                canvas.text(translation, block.translation, {.font = fontId(block.translationFont)});
+            }
         });
 }
 

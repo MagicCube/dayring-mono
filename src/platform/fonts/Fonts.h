@@ -25,6 +25,14 @@ enum class Font : freeink::ui::FontId {
     return static_cast<freeink::ui::FontId>(font);
 }
 
-void registerFonts(freeink::ui::DisplayTarget& target);
+// Called once at startup, before any UI rendering. Subsequent calls perform no I/O.
+#ifdef ARDUINO
+[[nodiscard]] bool loadFonts(const char* directory = "/ffat/fonts");
+#else
+[[nodiscard]] bool loadFonts(const char* directory = "data/fonts");
+#endif
+
+// Binds existing assets only; never loads files or decompresses on the rendering path.
+[[nodiscard]] bool registerFonts(freeink::ui::DisplayTarget& target);
 
 }  // namespace platform::fonts

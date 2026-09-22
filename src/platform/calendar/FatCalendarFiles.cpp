@@ -1,3 +1,4 @@
+#include "../storage/FatFilesystem.h"
 #include "Calendar.h"
 #include "CalendarStorage.h"
 
@@ -14,7 +15,7 @@ class FatCalendarFiles final : public CalendarFiles {
    public:
     std::optional<std::string> read(unsigned slot) override {
 #ifdef ARDUINO
-        if (!_mount()) return std::nullopt;
+        if (!storage::mountFatFilesystem()) return std::nullopt;
         auto file = FFat.open(_path(slot), "r");
         if (!file || file.size() > maxSnapshotBytes + 24) return std::nullopt;
         std::string bytes(file.size(), '\0');
@@ -29,7 +30,7 @@ class FatCalendarFiles final : public CalendarFiles {
 
     bool write(unsigned slot, std::string_view bytes) override {
 #ifdef ARDUINO
-        if (!_mount()) return false;
+        if (!storage::mountFatFilesystem()) return false;
         const std::string path = std::string("/ffat") + _path(slot);
         const int fd = ::open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0600);
         if (fd < 0) return false;
@@ -51,17 +52,10 @@ class FatCalendarFiles final : public CalendarFiles {
 
    private:
 #ifdef ARDUINO
-    bool _mount() {
-        // Never format a failed mount: the shared FAT partition may contain other data.
-        if (!_mounted) _mounted = FFat.begin(false, "/ffat", 4, "storage");
-        return _mounted;
-    }
-
     static const char* _path(unsigned slot) {
         return slot == 0 ? "/calendar-a.cache" : "/calendar-b.cache";
     }
 
-    bool _mounted = false;
 #endif
 };
 

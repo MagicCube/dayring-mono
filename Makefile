@@ -1,10 +1,16 @@
 ENV ?= papermono
 PYTHON ?= $(CURDIR)/.pio-core/penv/bin/python
+FONT_PYTHON ?= python3
+UPLOAD_PORT ?=
 PIO = "$(PYTHON)" -m platformio
 # GUI terminals may omit Homebrew from PATH even when clang-format is installed.
 CLANG_FORMAT ?= $(firstword $(shell command -v clang-format 2>/dev/null) $(wildcard /opt/homebrew/bin/clang-format /usr/local/bin/clang-format /opt/homebrew/opt/llvm/bin/clang-format /usr/local/opt/llvm/bin/clang-format) clang-format)
 HOST_CXX ?= c++
-CXX_SOURCES := $(shell find src include tests tools/preview -type f \( -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \))
+# Generated bitmap tables are owned by the font generator, not source formatting.
+CXX_SOURCES := $(shell find src include tests tools/preview -path 'src/platform/fonts/generated' -prune -o -type f \( -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) -print)
+
+FONT_SOURCES := $(wildcard src/platform/fonts/*.cpp)
+FONT_FLAGS := -isystem freeink-sdk/libs/book/FreeInkBook/third_party/miniz
 
 QR_SOURCES := src/platform/ui/QRCode.cpp src/platform/ui/QRCodeEncoder.cpp
 APPLICATION_SOURCES := src/platform/ui/PageController.cpp src/platform/runtime/Application.cpp src/platform/runtime/ApplicationRouter.cpp \
@@ -19,7 +25,7 @@ TIME_SOURCES := src/platform/time/services/TimeService.cpp $(RPC_SOURCES)
 HOST_UI_FLAGS := -isystem freeink-sdk/libs/hardware/Rtc/include -Isrc -Itests/stubs -isystem freeink-sdk/libs/ui/FreeInkUI/include
 
 .DEFAULT_GOAL := build
-.PHONY: format build upload monitor dev-server test test-application-manager test-shell test-navigation test-home-entry test-shell-facade test-power-service test-board-startup
+.PHONY: format build upload fs\:upload monitor dev-server test test-application-manager test-shell test-navigation test-home-entry test-shell-facade test-power-service test-board-startup
 
 format:
 	@command -v "$(CLANG_FORMAT)" >/dev/null 2>&1 || { \
@@ -33,6 +39,13 @@ build: format
 
 upload: format
 	$(PIO) run -e $(ENV) -t upload
+
+# Build and upload the existing filesystem assets without regenerating fonts.
+fs\:upload:
+	@fs_log=$$(mktemp /tmp/dayring-buildfs.XXXXXX); \
+	trap 'rm -f "$$fs_log"' EXIT; \
+	$(PIO) run -e $(ENV) -t buildfs >"$$fs_log" 2>&1 || { cat "$$fs_log"; exit 1; }
+	@$(PYTHON) tools/sync-fs.py --image .pio/build/$(ENV)/fatfs.bin --offset 0x410000 --esptool .pio-core/penv/bin/esptool $(if $(UPLOAD_PORT),--port "$(UPLOAD_PORT)")
 
 monitor:
 	$(PIO) device monitor -e $(ENV)
@@ -67,7 +80,7 @@ test-shell:
 		tests/ShellApplicationTest.cpp src/apps/RegisterApplications.cpp src/apps/shell/ShellApplication.cpp src/apps/shell/pages/*.cpp $(QR_SOURCES) src/apps/shell/components/*.cpp src/apps/shell/views/*.cpp \
 		src/apps/common/*.cpp src/apps/typography/*.cpp src/platform/runtime/Shell.cpp src/platform/tasking/services/TaskDispatchService.cpp src/platform/runtime/services/ServiceManager.cpp $(CALENDAR_SOURCES) $(CONTROL_SOURCES) $(BLE_SOURCES) $(POWER_SOURCES) $(TIME_SOURCES) src/platform/ui/ApplicationContainer.cpp \
 		$(APPLICATION_SOURCES) \
-		src/platform/runtime/Input.cpp src/platform/runtime/Display.cpp src/platform/fonts/Fonts.cpp \
+		src/platform/runtime/Input.cpp src/platform/runtime/Display.cpp $(FONT_SOURCES) $(FONT_FLAGS) \
 		freeink-sdk/libs/ui/FreeInkUI/src/FreeInkUI.cpp -o "$$shell_test" && "$$shell_test"
 
 test-navigation:
@@ -107,7 +120,16 @@ test-fonts:
 	@font_test=$$(mktemp /tmp/dayring-font-test.XXXXXX); \
 	trap 'rm -f "$$font_test"' EXIT; \
 	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror $(HOST_UI_FLAGS) \
-		tests/FontsTest.cpp src/platform/fonts/Fonts.cpp -o "$$font_test" && "$$font_test"
+		tests/FontsTest.cpp $(FONT_SOURCES) $(FONT_FLAGS) -o "$$font_test" && "$$font_test"
+
+test-fonts: test-font-loader
+
+.PHONY: test-font-loader
+test-font-loader:
+	@font_loader_test=$$(mktemp /tmp/dayring-font-loader-test.XXXXXX); \
+	trap 'rm -f "$$font_loader_test"' EXIT; \
+	$(HOST_CXX) -std=c++20 -Wall -Wextra -Werror $(HOST_UI_FLAGS) $(FONT_FLAGS) \
+		tests/FontAssetTest.cpp $(FONT_SOURCES) -o "$$font_loader_test" && "$$font_loader_test"
 
 .PHONY: test-preview test-preview-runtime
 test: test-preview
@@ -305,3 +327,12 @@ test-calendar-interop:
 		tests/CalendarInteropTest.cpp $(filter-out src/platform/calendar/CalendarClock.cpp,$(CALENDAR_SOURCES)) \
 		$(RPC_SOURCES) src/platform/tasking/services/TaskDispatchService.cpp -o .cache/calendar/interop-checks
 	.cache/calendar/swift-fixture | .cache/calendar/interop-checks
+
+.PHONY: test-font-assets
+test-font-assets:
+	$(FONT_PYTHON) tests/FontAssetsTest.py
+
+.PHONY: test-fs-sync
+test: test-fs-sync
+test-fs-sync:
+	$(PYTHON) tests/SyncFsTest.py

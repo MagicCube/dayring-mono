@@ -156,3 +156,17 @@ make preview "app://typography/?article=display"
 Show the resulting screenshot to the user in the response using a Markdown image with its absolute filesystem path, for example `![Typography preview](/absolute/project/path/.preview/typography--article-display.png)`. A tool-only image inspection or a plain file link does not satisfy this requirement. Re-capture after the final UI change so the displayed image matches the current code.
 
 The launcher uses the project's PlatformIO Python. `.preview/` contains PNGs only; filenames identify the application, omit the root page, and include a readable query without random/hash suffixes. Repeated captures overwrite the same screenshot, including device-state changes. Build artifacts, dependency/object caches, Python bytecode, and temporary work live in `.cache/preview/`. Both directories are Git-ignored. See [Preview CLI](tools/preview/README.md) for options and `make test-preview`. Keep route definitions and parameter behavior shared with firmware.
+
+## FATFS Font Assets
+
+Generated font binaries are version-controlled and must remain in Git under `data/fonts/` and are uploaded to FATFS `/fonts/` with `make fs:upload`. The generator keeps unchanged outputs byte-for-byte stable and no longer emits compiled font headers. Keep the eight filenames and the versioned binary format in `docs/fonts.md` aligned with `tools/generate-fonts/generate-fonts.py`; do not hand-edit generated `.bin` files.
+
+Load all fonts once at startup with `platform::fonts::loadFonts()` before UI rendering. `registerFonts()` must only bind resident descriptors, never read or decompress files. Use the shared non-formatting FAT mount and explicit PSRAM ownership. Native previews must consume the same binary assets as firmware. Inspect the generator, binary metadata and font documentation for capacity; use tests and previews for rendering correctness.
+
+Before the first firmware upload to a device, you must successfully complete `make fs:upload`, then run `make upload`. A failed or partial filesystem upload does not satisfy this prerequisite. Firmware requires the FATFS fonts at startup. Repeat `make fs:upload` whenever font assets change; do not regenerate fonts as part of filesystem upload.
+
+```sh
+make fs:upload
+# Only after the filesystem upload succeeds:
+make upload
+```

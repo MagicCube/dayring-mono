@@ -11,6 +11,7 @@
 #include "apps/shell/ShellApplication.h"
 #include "apps/shell/components/StatusBar.h"
 #include "apps/typography/TypographyApplication.h"
+#include "platform/fonts/Fonts.h"
 #include "platform/hal/Hardware.h"
 #include "platform/hal/RtcClock.h"
 #include "platform/hal/services/PowerService.h"
@@ -475,6 +476,7 @@ Rtc::DateTime clockTime() {
 }  // namespace platform::hal
 
 int main() {
+    assert(platform::fonts::loadFonts());
     assert(platform::runtime::Shell::instance().startServices());
     {
         apps::shell::pages::LockPageController lock;

@@ -17,8 +17,6 @@ struct Framebuffer {
     uint16_t width;
     uint16_t height;
     uint16_t strideBytes;
-    // Optional native gray8 output for host previews; empty on hardware.
-    std::span<uint8_t> grayPreview{};
 };
 
 void begin();

@@ -8,6 +8,13 @@ Import("env")
 
 
 def before_upload(source, target, env):
+    # Filesystem uploads write the separate FATFS partition and must not enter
+    # the firmware update screen; that transition can reset native USB before
+    # esptool starts the partition transfer.
+    targets = {str(item) for item in (target or ())}
+    if "uploadfs" in targets:
+        print("Filesystem upload: skipping firmware update preparation.")
+        return
     accepted = False
     try:
         env.AutodetectUploadPort()

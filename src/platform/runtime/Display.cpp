@@ -14,7 +14,6 @@ freeink::ui::DisplayTarget displayTarget() {
     freeink::ui::DisplayTarget target{
         framebuffer.pixels.data(), static_cast<int16_t>(framebuffer.width), static_cast<int16_t>(framebuffer.height),
         static_cast<int16_t>(framebuffer.strideBytes), freeink::ui::Orientation::Portrait};
-    target.setGrayPreview(framebuffer.grayPreview.data());
     return target;
 }
 
@@ -27,7 +26,7 @@ freeink::ui::DeviceContext displayDevice() {
 void renderFrame(ui::ApplicationContainer& container) {
     if (!hal::displayReady() || !container.needsRender()) return;
     auto target = displayTarget();
-    fonts::registerFonts(target);
+    if (!fonts::registerFonts(target)) return;
     container.render(target, {0, 0, target.logicalWidth(), target.logicalHeight()});
     hal::refreshDisplay();
 }
