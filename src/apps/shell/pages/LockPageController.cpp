@@ -91,21 +91,20 @@ bool LockPageController::_refreshCalendar() {
         const auto startDay = event.start.localSeconds() / 86400;
         const auto start = event.start.localSeconds() % 86400;
         const auto end = event.end.localSeconds() % 86400;
-        char label[24] = "";
+        char startLabel[8] = "", endLabel[8] = "";
         if (event.isAllDay) {
-            snprintf(label, sizeof(label), "All day");
+            snprintf(startLabel, sizeof(startLabel), "All day");
         } else {
-            snprintf(label, sizeof(label), "%02u:%02u-%02u:%02u", static_cast<unsigned>(start / 3600),
-                     static_cast<unsigned>((start / 60) % 60), static_cast<unsigned>(end / 3600),
-                     static_cast<unsigned>((end / 60) % 60));
+            snprintf(startLabel, sizeof(startLabel), "%02u:%02u", static_cast<unsigned>(start / 3600), static_cast<unsigned>((start / 60) % 60));
+            snprintf(endLabel, sizeof(endLabel), "%02u:%02u", static_cast<unsigned>(end / 3600), static_cast<unsigned>((end / 60) % 60));
         }
         auto singleLine = [](std::string value) {
             std::replace(value.begin(), value.end(), '\n', ' ');
             std::replace(value.begin(), value.end(), '\r', ' ');
             return value;
         };
-        items.push_back({singleLine(event.title.empty() ? "Untitled event" : event.title), label, startDay == today + 1,
-                         event.isAllDay});
+        items.push_back({singleLine(event.title.empty() ? "Untitled" : event.title), singleLine(event.location), startLabel,
+                         endLabel, startDay == today + 1, event.isAllDay});
     }
     if (items == _calendarItems) return false;
     _calendarItems = std::move(items);

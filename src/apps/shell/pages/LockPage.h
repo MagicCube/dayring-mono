@@ -8,7 +8,9 @@ namespace apps::shell::pages {
 
 struct LockCalendarItem {
     std::string title;
-    std::string time;
+    std::string location;
+    std::string startTime;
+    std::string endTime;
     bool isTomorrow = false;
     bool isAllDay = false;
     bool operator==(const LockCalendarItem&) const = default;

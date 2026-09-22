@@ -17,18 +17,29 @@ void calendarRow(platform::ui::Canvas& canvas, const platform::ui::Rect& row, co
     using namespace freeink::ui;
     using platform::fonts::Font;
     using platform::fonts::fontId;
-    constexpr int16_t ruleWidth = 6, textGap = 8, lineGap = 4;
+    constexpr int16_t ruleWidth = 6, textGap = 8, lineGap = 0, rightWidth = 72;
     const int16_t textX = row.x + ruleWidth + textGap;
-    const int16_t textWidth = row.width - ruleWidth - textGap;
-    canvas.fill({row.x, static_cast<int16_t>(row.y + 4), ruleWidth, static_cast<int16_t>(row.height - 8)},
+    const int16_t textWidth = row.width - ruleWidth - textGap - rightWidth;
+    const int16_t markerHeight = static_cast<int16_t>(event.isAllDay ? row.height - 8 : 56);
+    canvas.fill({row.x, static_cast<int16_t>(row.y + (row.height - markerHeight) / 2), ruleWidth, markerHeight},
                 Paint::solid(Color::LightGray), ruleWidth / 2);
-    // Optically center the visible text block against the marker, preserving the shared font baselines.
-    const int16_t titleY = static_cast<int16_t>(row.y - 4);
+    const int16_t contentHeight = event.isAllDay ? titleHeight : titleHeight + lineGap + detailHeight;
+    const int16_t titleY = static_cast<int16_t>(row.y + (row.height - contentHeight) / 2);
     canvas.text({textX, titleY, textWidth, titleHeight}, event.title.c_str(),
                 {.font = fontId(Font::RobotoL), .color = Color::White, .maxLines = 1});
-    if (event.isAllDay) return;
+    const auto rightX = static_cast<int16_t>(row.x + row.width - rightWidth);
+    if (event.isAllDay) {
+        canvas.text({rightX, titleY, rightWidth, titleHeight}, "All day",
+                    {.font = fontId(Font::RobotoS), .align = TextAlign::Right, .color = Color::White, .maxLines = 1});
+        return;
+    }
     canvas.text({textX, static_cast<int16_t>(titleY + titleHeight + lineGap), textWidth, detailHeight},
-                event.time.c_str(), {.font = fontId(Font::RobotoM), .color = Color::LightGray, .maxLines = 1});
+                event.location.c_str(), {.font = fontId(Font::RobotoS), .color = Color::LightGray, .maxLines = 1});
+    const auto rightY = static_cast<int16_t>(row.y + (row.height - titleHeight - detailHeight) / 2);
+    canvas.text({rightX, rightY, rightWidth, detailHeight}, event.startTime.c_str(),
+                {.font = fontId(Font::RobotoS), .align = TextAlign::Right, .color = Color::White, .maxLines = 1});
+    canvas.text({rightX, static_cast<int16_t>(rightY + detailHeight), rightWidth, detailHeight}, event.endTime.c_str(),
+                {.font = fontId(Font::RobotoS), .align = TextAlign::Right, .color = Color::LightGray, .maxLines = 1});
 }
 
 }  // namespace
@@ -87,12 +98,12 @@ void LockPage::_renderCalendar(platform::ui::Canvas& canvas, const platform::ui:
 
     constexpr int16_t sideInset = 32, itemGap = 4, groupGap = 16, groupBottom = 4;
     constexpr int16_t calendarBottomInset = 24;
-    const int16_t titleHeight = gridLineHeight(canvas, fontId(Font::RobotoL));
-    const int16_t detailHeight = gridLineHeight(canvas, fontId(Font::RobotoM));
+    const int16_t titleHeight = gridLineHeight(canvas, fontId(Font::RobotoM));
+    const int16_t detailHeight = gridLineHeight(canvas, fontId(Font::RobotoS));
     const int16_t labelHeight = gridLineHeight(canvas, fontId(Font::RobotoS));
     const auto events = props.events.first(count);
     const auto itemHeight = [&](const LockCalendarItem& event) {
-        return static_cast<int16_t>(event.isAllDay ? titleHeight : titleHeight + 4 + detailHeight);
+        return static_cast<int16_t>(event.isAllDay ? 36 : 64);
     };
     size_t firstTomorrow = count;
     for (size_t i = 0; i < count; ++i) {
